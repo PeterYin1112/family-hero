@@ -67,8 +67,6 @@
         const NUMBERS_1_10 = [{ word: "one", type: "number", mean: "一", isFocus: true }, { word: "two", type: "number", mean: "二", isFocus: true }, { word: "three", type: "number", mean: "三", isFocus: true }, { word: "four", type: "number", mean: "四", isFocus: true }, { word: "five", type: "number", mean: "五", isFocus: true }, { word: "six", type: "number", mean: "六", isFocus: true }, { word: "seven", type: "number", mean: "七", isFocus: true }, { word: "eight", type: "number", mean: "八", isFocus: true }, { word: "nine", type: "number", mean: "九", isFocus: true }, { word: "ten", type: "number", mean: "十", isFocus: true }];
         const BROTHER_EXTRAS = [{ word: "tired", type: "adj", mean: "累的", isFocus: true }, { word: "angry", type: "adj", mean: "生氣的", isFocus: true }, { word: "strong", type: "adj", mean: "強壯的", isFocus: true }, { word: "thin", type: "adj", mean: "瘦的", isFocus: true }, { word: "short", type: "adj", mean: "短/矮的", isFocus: true }, { word: "tall", type: "adj", mean: "高的", isFocus: true }];
 
-        // --- 物品庫 (裝備與寵物) ---
-        // 類型: weapon (改變攻擊特效), head (頭飾), pet (寵物), shield (裝飾)
         const ITEMS_DB = {
             princess: {
                 math: [
@@ -123,7 +121,6 @@
             { text: "失火了！快幫忙滅火！", emoji: "🔥", type: "tense" }, { text: "有小偷！快抓住他！", emoji: "🦹", type: "tense" }, { text: "病人需要急救！", emoji: "🚑", type: "tense" }, { text: "外送訂單快遲到了！", emoji: "🛵", type: "happy" }, { text: "房間太亂了！", emoji: "🧹", type: "happy" }, { text: "肚子好餓喔！", emoji: "🍱", type: "happy" }, { text: "野生噴火龍出現！", emoji: "🐉", type: "battle" }, { text: "發現神秘寶箱！", emoji: "💎", type: "battle" }, { text: "最後一秒投籃！", emoji: "🏀", type: "tense" }, { text: "幫爸爸搥背！", emoji: "👨", type: "happy" }
         ];
 
-        // 取得當前週數ID (例如 2023-W42)
         const getWeekId = () => {
             const d = new Date();
             const year = d.getFullYear();
@@ -136,7 +133,7 @@
             lastPlayedDate: '', lastWeekId: '', 
             dailyMathLevel: 0, dailyEnglishLevel: 0, dailyScore: 0, 
             allTimeBest: { score: 0, date: '-' }, weeklyHistory: [],
-            earnedItems: [] // 存放獲得的物品 ID
+            earnedItems: [] 
         };
         
         const INITIAL_STATS = {
@@ -151,7 +148,7 @@
             daughter: { id: 'daughter', name: '印品榕', avatar: '👧', needPwd: true, theme: 'princess' }, 
             son: { id: 'son', name: '印晨希', avatar: '👦', needPwd: true, theme: 'hero' }, 
             mom: { id: 'mom', name: '印媽媽', avatar: '👩', needPwd: true, theme: 'princess' }, 
-            challenger: { id: 'challenger', name: '挑戰者', avatar: '🦸', needPwd: false, theme: 'hero' } 
+            challenger: { id: 'challenger', name: '挑戰者', subName: '(免密碼)', avatar: '🦸', needPwd: false, theme: 'hero' } 
         };
         const PARENT_PASSWORD = "28825252";
         const FAMILY_PASSWORD = "168";
@@ -176,6 +173,7 @@
             else if (t === 'win') { [0,0.1,0.2,0.4,0.5].forEach((s,i)=>{const o2=audioCtx.createOscillator();const g2=audioCtx.createGain();o2.connect(g2);g2.connect(audioCtx.destination);o2.frequency.setValueAtTime(440+i*110,n+s);g2.gain.setValueAtTime(0.3,n+s);o2.start(n+s);o2.stop(n+s+0.3)}); }
             else if (t === 'item') { [0,0.1,0.2].forEach((s,i)=>{const o2=audioCtx.createOscillator();const g2=audioCtx.createGain();o2.type='sine';o2.frequency.setValueAtTime(800+i*200,n+s);g2.gain.setValueAtTime(0.3,n+s);o2.connect(g2);g2.connect(audioCtx.destination);o2.start(n+s);o2.stop(n+s+0.2)}); }
             else if (t === 'hurt') { o.type='sawtooth'; o.frequency.setValueAtTime(150, n); o.frequency.linearRampToValueAtTime(50, n + 0.4); g.gain.setValueAtTime(0.5, n); g.gain.linearRampToValueAtTime(0, n + 0.4); o.start(n); o.stop(n + 0.4); }
+            else if (t === 'lose') { o.type='sawtooth'; o.frequency.setValueAtTime(100, n); o.frequency.linearRampToValueAtTime(20, n + 1.0); g.gain.setValueAtTime(0.3, n); g.gain.linearRampToValueAtTime(0, n + 1.0); o.start(n); o.stop(n + 1.0); }
         };
         const speakWord = (text) => { if ('speechSynthesis' in window) { window.speechSynthesis.cancel(); const u = new SpeechSynthesisUtterance(text); u.lang = 'en-US'; u.rate = 0.9; window.speechSynthesis.speak(u); } };
 
@@ -196,7 +194,6 @@
             const [rewards, setRewards] = useState({ levelRewards: {}, dailyScore: Array(5).fill({score:0, reward:""}) });
             const [audioStarted, setAudioStarted] = useState(false);
             
-            // Game State
             const [dailyLevel, setDailyLevel] = useState(1);
             const [timer, setTimer] = useState(0);
             const [maxTime, setMaxTime] = useState(30);
@@ -209,15 +206,13 @@
             const [inputMode, setInputMode] = useState('select');
             const [scenario, setScenario] = useState(SCENARIOS[0]);
             
-            // Animation
             const [animState, setAnimState] = useState('idle');
             const [effectText, setEffectText] = useState(null);
-            const [newItem, setNewItem] = useState(null); // 當獲得新物品時
+            const [newItem, setNewItem] = useState(null);
 
             const gameRuleKeyRef = useRef('daughter');
             const timerRef = useRef(null);
 
-            // --- 讀取與週重置邏輯 ---
             useEffect(() => {
                 const saved = JSON.parse(localStorage.getItem('fh_v6_github_items'));
                 const currentWeek = getWeekId();
@@ -225,33 +220,18 @@
 
                 if (saved) { 
                     const loadedStats = { ...INITIAL_STATS, ...saved.stats };
-                    
-                    // 檢查每一位玩家的週次
                     Object.keys(loadedStats).forEach(key => {
                         const p = loadedStats[key];
-                        // 如果週次不同，重置物品
-                        if (p.lastWeekId !== currentWeek) {
-                            p.earnedItems = [];
-                            p.lastWeekId = currentWeek;
-                        }
-                        // 日期不同，重置分數 (但不重置等級進度，因爲要累積到100)
-                        if (p.lastPlayedDate !== today) {
-                            p.dailyScore = 0;
-                            p.lastPlayedDate = today;
-                        }
+                        if (p.lastWeekId !== currentWeek) { p.earnedItems = []; p.lastWeekId = currentWeek; }
+                        if (p.lastPlayedDate !== today) { p.dailyScore = 0; p.lastPlayedDate = today; }
                     });
-
                     setStats(loadedStats); 
                     setVocabMap({ ...vocabMap, ...saved.vocabMap });
                     setMathSettings({ ...INITIAL_MATH_SETTINGS, ...saved.mathSettings });
                     setRewards(saved.rewards); 
                 } else {
-                    // 初始化週次
                     const initStats = { ...INITIAL_STATS };
-                    Object.keys(initStats).forEach(k => {
-                        initStats[k].lastWeekId = currentWeek;
-                        initStats[k].lastPlayedDate = today;
-                    });
+                    Object.keys(initStats).forEach(k => { initStats[k].lastWeekId = currentWeek; initStats[k].lastPlayedDate = today; });
                     setStats(initStats);
                 }
             }, []);
@@ -315,21 +295,26 @@
             };
 
             const handleCharSelect = (id) => {
-                if (CHARACTERS[id].needPwd) {
-                    const pwd = prompt("請輸入密碼：");
-                    if (pwd === FAMILY_PASSWORD) setPlayerKey(id);
-                    else alert("密碼錯誤！");
-                } else setPlayerKey(id);
+                setPlayerKey(id); // 改為直接切換，不需密碼
             };
 
             const handleStart = (mode) => {
+                // 進入戰鬥才需要密碼
+                if (CHARACTERS[playerKey].needPwd) {
+                    const pwd = prompt("請輸入家人密碼：");
+                    if (pwd !== FAMILY_PASSWORD) {
+                        alert("密碼錯誤！");
+                        return;
+                    }
+                }
+
                 initAudio(); setAudioStarted(true);
                 const p = stats[playerKey];
                 const myLv = mode === 'daily_math' ? p.dailyMathLevel : p.dailyEnglishLevel;
                 const otherLv = mode === 'daily_math' ? p.dailyEnglishLevel : p.dailyMathLevel;
                 if (myLv > 0 && myLv % 20 === 0 && otherLv < myLv) { alert(`🚧 階段性挑戰！請先把另一科目的挑戰(目前 Lv.${otherLv})追上來到 Lv.${myLv} 才能解鎖下一階段喔！`); return; }
                 
-                const ruleKey = playerKey === 'mom' ? momMode : playerKey;
+                const ruleKey = (playerKey === 'mom' || playerKey === 'challenger') ? momMode : playerKey;
                 gameRuleKeyRef.current = ruleKey;
                 setGameMode(mode); setPlayerHp(100); setHp(100); setScore(p.dailyScore);
                 const startLv = Math.floor(myLv / 10) * 10 + 1;
@@ -348,27 +333,21 @@
                 timerRef.current = setInterval(() => setTimer(t => t > 0 ? t - 1 : 0), 1000);
             };
 
-            // 判斷是否掉落物品
             const checkItemDrop = (currentLevel) => {
                 if (currentLevel > 0 && currentLevel % 10 === 0) {
-                    const theme = CHARACTERS[playerKey].theme; // princess or hero
+                    const theme = CHARACTERS[playerKey].theme;
                     const type = gameMode.includes('math') ? 'math' : 'english';
                     const pool = ITEMS_DB[theme][type];
                     const pStats = stats[playerKey];
                     const earned = pStats.earnedItems || [];
-                    
-                    // 過濾出尚未獲得的物品
                     const available = pool.filter(i => !earned.includes(i.id));
-                    
                     if (available.length > 0) {
                         const drop = available[Math.floor(Math.random() * available.length)];
-                        // 更新 stats
                         const newStats = { ...stats };
                         if (!newStats[playerKey].earnedItems) newStats[playerKey].earnedItems = [];
                         newStats[playerKey].earnedItems.push(drop.id);
                         setStats(newStats);
-                        setNewItem(drop); // 觸發獲得動畫
-                        playSFX('item');
+                        setNewItem(drop); playSFX('item');
                         setTimeout(() => setNewItem(null), 3000);
                     }
                 }
@@ -380,11 +359,10 @@
                 const input = val.trim().toLowerCase();
                 let isCorrect = question.isRemain ? input.replace(/[\.\s]+/g, 'r') === target : input === target;
                 
-                // 檢查玩家擁有的物品特效
                 const myItems = stats[playerKey].earnedItems || [];
                 const allItems = [...ITEMS_DB.princess.math, ...ITEMS_DB.princess.english, ...ITEMS_DB.hero.math, ...ITEMS_DB.hero.english];
                 const weapon = allItems.find(i => myItems.includes(i.id) && i.type === 'weapon');
-                const effectType = weapon ? weapon.effect : 'attack'; // magic or slash or attack
+                const effectType = weapon ? weapon.effect : 'attack';
 
                 if (isCorrect) { 
                     playSFX(effectType); 
@@ -404,7 +382,7 @@
                         setAnimState('dead'); playSFX('lose'); setTimeout(()=>setScreen('result'), 1000);
                     } else if (isCorrect) {
                         if (dailyLevel % 10 === 0) {
-                            checkItemDrop(dailyLevel); // 檢查掉落
+                            checkItemDrop(dailyLevel);
                             setAnimState('victory'); playSFX('grand_win');
                             const newStats = { ...stats };
                             if (gameMode === 'daily_math') newStats[playerKey].dailyMathLevel = dailyLevel;
@@ -420,14 +398,12 @@
 
             const enterSettings = () => { const p = prompt("請輸入管理員密碼："); if (p === PARENT_PASSWORD) setScreen('settings'); else alert("密碼錯誤"); };
 
-            // --- Components ---
             const Particles = () => <div className="absolute inset-0 pointer-events-none">{[...Array(20)].map((_,i)=><div key={i} className="particle" style={{left:'50%',top:'50%',backgroundColor:['#f00','#0f0','#00f','#ff0','#f0f'][Math.floor(Math.random()*5)],'--x':(Math.random()*400-200)+'px','--initialY':(Math.random()*200-100)+'px','--initialSize':(Math.random()*0.5+0.2)+'rem','--finalSize':'0rem'}}/>)}</div>;
 
             const ItemDisplay = ({ items }) => {
                 if (!items || items.length === 0) return null;
                 const allItems = [...ITEMS_DB.princess.math, ...ITEMS_DB.princess.english, ...ITEMS_DB.hero.math, ...ITEMS_DB.hero.english];
                 const myGear = allItems.filter(i => items.includes(i.id));
-                
                 return (
                     <>
                         {myGear.map(item => {
@@ -435,11 +411,8 @@
                             if (item.type === 'weapon') className = 'item-slot-weapon';
                             else if (item.type === 'head') className = 'item-slot-head';
                             else if (item.type === 'pet') className = 'item-slot-pet';
-                            else className = 'item-slot-shield'; // shield or others
-                            
-                            // 隨機一點偏移避免重疊
+                            else className = 'item-slot-shield';
                             const style = item.type === 'pet' ? { left: `-${Math.random()*20+30}px` } : {};
-                            
                             return <div key={item.id} className={className} style={style}>{item.icon}</div>;
                         })}
                     </>
@@ -477,6 +450,8 @@
                 const settings = mathSettings[charKey] || (isDaughter ? INITIAL_MATH_SETTINGS.daughter : INITIAL_MATH_SETTINGS.son);
                 const updateSlot = (idx, field, val) => { const newS = { ...mathSettings }; newS.daughter.slots[idx][field] = parseInt(val) || 0; setMathSettings(newS); };
                 const updateWeight = (key, val) => { const newS = { ...mathSettings }; if (!newS[charKey]) newS[charKey] = { weights: { ...INITIAL_MATH_SETTINGS.son.weights } }; newS[charKey].weights[key] = parseInt(val) || 0; setMathSettings(newS); };
+                
+                // 顯示女兒的數學設定介面
                 if (isDaughter) {
                     return (
                         <div className="bg-white/5 p-4 rounded-xl mt-4 space-y-2">
@@ -484,6 +459,7 @@
                         </div>
                     );
                 } else {
+                    // 顯示兒子或挑戰者的數學設定介面 (使用相同的 weights 結構)
                     const weights = settings.weights || INITIAL_MATH_SETTINGS.son.weights;
                     const labels = { '2-digit-add-sub': '2位數加減', '3-digit-add-sub': '3位數加減', '1-digit-mult': '2位x1位乘', '2-digit-mult': '2位x2位乘', 'div-exact': '整除', 'div-remain': '餘數' };
                     return (
@@ -522,7 +498,9 @@
                             <div className="grid grid-cols-4 gap-2 mb-6 bg-black/20 p-2 rounded-xl w-full max-w-lg">
                                 {Object.values(CHARACTERS).map(c => (
                                     <button key={c.id} onClick={() => handleCharSelect(c.id)} className={`flex flex-col items-center justify-center py-2 rounded-lg transition-all ${playerKey === c.id ? 'bg-yellow-500 text-black scale-105 shadow-lg' : 'text-gray-400 hover:bg-white/10'}`}>
-                                        <span className="text-2xl mb-1">{c.avatar}</span><span className="text-xs font-bold">{c.name}</span>
+                                        <span className="text-2xl mb-1">{c.avatar}</span>
+                                        <span className="text-xs font-bold">{c.name}</span>
+                                        {c.subName && <span className="text-[10px] scale-75 block text-green-300">{c.subName}</span>}
                                     </button>
                                 ))}
                             </div>
@@ -531,7 +509,7 @@
                                     <div className="text-7xl mb-2 animate-breathe">{CHARACTERS[playerKey].avatar}</div>
                                     <ItemDisplay items={stats[playerKey].earnedItems} />
                                 </div>
-                                {playerKey === 'mom' && (
+                                {(playerKey === 'mom' || playerKey === 'challenger') && (
                                     <div className="flex bg-black/30 rounded-full p-1 mb-4 w-full text-sm font-bold">
                                         <button onClick={() => setMomMode('daughter')} className={`flex-1 py-1 rounded-full transition-all ${momMode === 'daughter' ? 'bg-pink-600 text-white' : 'text-gray-400'}`}>測妹妹</button>
                                         <button onClick={() => setMomMode('son')} className={`flex-1 py-1 rounded-full transition-all ${momMode === 'son' ? 'bg-blue-600 text-white' : 'text-gray-400'}`}>測哥哥</button>
@@ -555,7 +533,6 @@
                                 <div className="flex items-center gap-2">
                                     <div className="text-3xl relative">
                                         {CHARACTERS[playerKey].avatar}
-                                        {/* 小頭像也要顯示一點裝備提示 */}
                                         <div className="absolute -top-1 -right-1 text-xs">{stats[playerKey].earnedItems && stats[playerKey].earnedItems.length > 0 ? '👑' : ''}</div>
                                     </div>
                                     <div className="h-4 w-28 bg-gray-700 rounded-full overflow-hidden border border-gray-500 relative">
@@ -599,7 +576,7 @@
                     {screen === 'settings' && (
                         <div className="h-full p-6 bg-slate-900 overflow-y-auto">
                             <div className="flex justify-between items-center mb-6 border-b border-gray-700 pb-4"><h2 className="text-2xl font-bold text-yellow-400 flex items-center gap-2">⚙️ 家長管理中心</h2><button onClick={() => setScreen('menu')} className="bg-gray-700 px-4 py-2 rounded-lg text-sm font-bold">退出</button></div>
-                            <div className="flex gap-2 mb-4 bg-black/20 p-1 rounded-lg overflow-x-auto scrollbar-hide">{Object.values(CHARACTERS).filter(c=>c.id!=='mom').map(c => (<button key={c.id} onClick={()=>setSettingChar(c.id)} className={`flex-1 py-2 px-3 whitespace-nowrap rounded font-bold ${settingChar===c.id ? 'bg-indigo-600 text-white':'text-gray-400'}`}>{c.name}</button>))}</div>
+                            <div className="flex gap-2 mb-4 bg-black/20 p-1 rounded-lg overflow-x-auto scrollbar-hide">{Object.values(CHARACTERS).map(c => (<button key={c.id} onClick={()=>setSettingChar(c.id)} className={`flex-1 py-2 px-3 whitespace-nowrap rounded font-bold ${settingChar===c.id ? 'bg-indigo-600 text-white':'text-gray-400'}`}>{c.name}</button>))}</div>
                             <div className="flex gap-2 mb-4"><button onClick={()=>setSettingTab('vocab')} className={`flex-1 py-2 rounded border border-white/10 ${settingTab==='vocab'?'bg-blue-600':'bg-white/5'}`}>📚 單字設定 (⭐重點)</button><button onClick={()=>setSettingTab('math')} className={`flex-1 py-2 rounded border border-white/10 ${settingTab==='math'?'bg-orange-600':'bg-white/5'}`}>🔢 數學難度</button></div>
                             {settingTab === 'vocab' && <VocabSettings charKey={settingChar} />}
                             {settingTab === 'math' && <MathSettings charKey={settingChar} />}
