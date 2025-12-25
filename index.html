@@ -51,7 +51,8 @@
 
         const INITIAL_STATS = {
             daughter: { lastPlayedDate: '', dailyMathLevel: 0, dailyEnglishLevel: 0, dailyScore: 0, allTimeBest: { score: 0, date: '-' }, weeklyHistory: [] },
-            son: { lastPlayedDate: '', dailyMathLevel: 0, dailyEnglishLevel: 0, dailyScore: 0, allTimeBest: { score: 0, date: '-' }, weeklyHistory: [] }
+            son: { lastPlayedDate: '', dailyMathLevel: 0, dailyEnglishLevel: 0, dailyScore: 0, allTimeBest: { score: 0, date: '-' }, weeklyHistory: [] },
+            mom: { lastPlayedDate: '', dailyMathLevel: 0, dailyEnglishLevel: 0, dailyScore: 0, allTimeBest: { score: 0, date: '-' }, weeklyHistory: [] }
         };
 
         const INITIAL_MATH_SETTINGS = {
@@ -59,15 +60,34 @@
             son: { weights: { '2-digit-add-sub': 5, '3-digit-add-sub': 2, '1-digit-mult': 3, '2-digit-mult': 1, 'div-exact': 2, 'div-remain': 1 } }
         };
 
-        const CHARACTERS = { daughter: { id: 'daughter', name: '印品榕', avatar: '👧' }, son: { id: 'son', name: '印晨希', avatar: '👦' } };
-        const PARENT_PASSWORD = "28825252";
+        const CHARACTERS = { 
+            daughter: { id: 'daughter', name: '印品榕', avatar: '👧' }, 
+            son: { id: 'son', name: '印晨希', avatar: '👦' },
+            mom: { id: 'mom', name: '印媽媽', avatar: '👩' }
+        };
 
-        // --- 音樂引擎 ---
+        // --- 音樂引擎 (音量增強版) ---
         let audioCtx = null;
         let musicInterval = null;
         const initAudio = () => { if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)(); if (audioCtx.state === 'suspended') audioCtx.resume(); };
-        const playTone = (f, d, w = 'sine', v = 0.05) => { if (!audioCtx) return; const o = audioCtx.createOscillator(); const g = audioCtx.createGain(); o.type = w; o.frequency.setValueAtTime(f, audioCtx.currentTime); g.gain.setValueAtTime(v, audioCtx.currentTime); g.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + d); o.connect(g); g.connect(audioCtx.destination); o.start(); o.stop(audioCtx.currentTime + d); };
+        
+        // 音量係數提高：預設音量從 0.05 -> 0.2
+        const playTone = (f, d, w = 'sine', v = 0.2) => { 
+            if (!audioCtx) return; 
+            const o = audioCtx.createOscillator(); 
+            const g = audioCtx.createGain(); 
+            o.type = w; 
+            o.frequency.setValueAtTime(f, audioCtx.currentTime); 
+            g.gain.setValueAtTime(v, audioCtx.currentTime); 
+            g.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + d); 
+            o.connect(g); 
+            g.connect(audioCtx.destination); 
+            o.start(); 
+            o.stop(audioCtx.currentTime + d); 
+        };
+        
         const stopMusic = () => { if (musicInterval) clearInterval(musicInterval); };
+        
         const playMusic = (style) => {
             stopMusic(); if (!audioCtx) return;
             let scale = [261, 329, 392, 523]; let tempo = 400; let wave = 'sine';
@@ -75,14 +95,60 @@
             else if (style === 'tense') { scale = [110, 116, 130]; tempo = 150; wave = 'square'; }
             musicInterval = setInterval(() => { if (Math.random() > 0.4) playTone(scale[Math.floor(Math.random() * scale.length)], tempo / 1000, wave); }, tempo);
         };
-        const playSFX = (t) => { if (!audioCtx) return; const n = audioCtx.currentTime; const o = audioCtx.createOscillator(); const g = audioCtx.createGain(); o.connect(g); g.connect(audioCtx.destination); if (t === 'attack') { o.frequency.setValueAtTime(200, n); o.frequency.linearRampToValueAtTime(800, n + 0.1); g.gain.setValueAtTime(0.1, n); o.start(); o.stop(n + 0.1); } else if (t === 'win') { [0, 0.1, 0.2].forEach((s, i) => { const o2 = audioCtx.createOscillator(); const g2 = audioCtx.createGain(); o2.connect(g2); g2.connect(audioCtx.destination); o2.frequency.setValueAtTime(440 + i * 110, n + s); g2.gain.setValueAtTime(0.1, n + s); o2.start(n + s); o2.stop(n + s + 0.3); }); } };
+        
+        const playSFX = (t) => { 
+            if (!audioCtx) return; 
+            const n = audioCtx.currentTime; 
+            const o = audioCtx.createOscillator(); 
+            const g = audioCtx.createGain(); 
+            o.connect(g); 
+            g.connect(audioCtx.destination); 
+            
+            if (t === 'attack') { // 攻擊音效：大聲點
+                o.frequency.setValueAtTime(200, n); 
+                o.frequency.linearRampToValueAtTime(800, n + 0.1); 
+                g.gain.setValueAtTime(0.4, n); 
+                o.start(); 
+                o.stop(n + 0.1); 
+            } else if (t === 'win') { // 勝利音效
+                [0, 0.1, 0.2].forEach((s, i) => { 
+                    const o2 = audioCtx.createOscillator(); 
+                    const g2 = audioCtx.createGain(); 
+                    o2.connect(g2); 
+                    g2.connect(audioCtx.destination); 
+                    o2.frequency.setValueAtTime(440 + i * 110, n + s); 
+                    g2.gain.setValueAtTime(0.3, n + s); 
+                    o2.start(n + s); 
+                    o2.stop(n + s + 0.3); 
+                }); 
+            } else if (t === 'hurt') { // 受傷音效：補上 logic 並加大聲
+                o.type = 'sawtooth';
+                o.frequency.setValueAtTime(150, n);
+                o.frequency.linearRampToValueAtTime(50, n + 0.3);
+                g.gain.setValueAtTime(0.4, n);
+                g.gain.linearRampToValueAtTime(0, n + 0.3);
+                o.start(n); 
+                o.stop(n + 0.3);
+            }
+        };
 
         const speakWord = (text) => { const u = new SpeechSynthesisUtterance(text); u.lang = 'en-US'; window.speechSynthesis.speak(u); };
+
+        // --- 組件 ---
+        const LucideIcon = ({ name, className }) => {
+            const [IconComp, setIconComp] = useState(null);
+            useEffect(() => {
+                const camelName = name[0].toUpperCase() + name.slice(1).replace(/-([a-z])/g, g => g[1].toUpperCase());
+                setIconComp(window.lucide.icons[camelName]);
+            }, [name]);
+            return IconComp ? <IconComp className={className} /> : null;
+        };
 
         // --- 主程式 ---
         function App() {
             const [screen, setScreen] = useState('menu');
             const [playerKey, setPlayerKey] = useState('daughter');
+            const [momMode, setMomMode] = useState('daughter');
             const [gameMode, setGameMode] = useState('math');
             const [stats, setStats] = useState(INITIAL_STATS);
             const [vocabMap, setVocabMap] = useState({ daughter: [...BASE_VOCAB], son: [...BASE_VOCAB] });
@@ -100,11 +166,20 @@
             const [feedback, setFeedback] = useState(null);
             const [inputMode, setInputMode] = useState('select');
             const [scenario, setScenario] = useState(SCENARIOS[0]);
+            
+            const gameRuleKeyRef = useRef('daughter');
             const timerRef = useRef(null);
 
             useEffect(() => {
                 const saved = JSON.parse(localStorage.getItem('fh_v4_github_complete'));
-                if (saved) { setStats(saved.stats); setVocabMap(saved.vocabMap); setMathSettings(saved.mathSettings); setRewards(saved.rewards); }
+                if (saved) { 
+                    const loadedStats = saved.stats;
+                    if (!loadedStats.mom) loadedStats.mom = { ...INITIAL_STATS.mom };
+                    setStats(loadedStats); 
+                    setVocabMap(saved.vocabMap); 
+                    setMathSettings(saved.mathSettings); 
+                    setRewards(saved.rewards); 
+                }
             }, []);
 
             useEffect(() => {
@@ -119,8 +194,8 @@
                 return options[0].item;
             };
 
-            const generateMathQuestion = (pKey) => {
-                if (pKey === 'daughter') {
+            const generateMathQuestion = (targetRole) => {
+                if (targetRole === 'daughter') {
                     const range = pickWeighted(mathSettings.daughter.slots.map(s => ({ item: s.range, weight: s.weight })));
                     const n1 = Math.floor(Math.random() * range) + 1;
                     const n2 = Math.floor(Math.random() * range) + 1;
@@ -143,8 +218,8 @@
                 }
             };
 
-            const generateEnglishQuestion = (pKey) => {
-                const pool = vocabMap[pKey] || BASE_VOCAB;
+            const generateEnglishQuestion = (targetRole) => {
+                const pool = vocabMap[targetRole] || BASE_VOCAB;
                 const wordObj = pool[Math.floor(Math.random() * pool.length)];
                 const templates = SENTENCE_TEMPLATES[wordObj.type] || SENTENCE_TEMPLATES['noun'];
                 const template = templates[Math.floor(Math.random() * templates.length)];
@@ -159,17 +234,23 @@
                 const p = stats[playerKey];
                 const myLv = mode === 'daily_math' ? p.dailyMathLevel : p.dailyEnglishLevel;
                 const otherLv = mode === 'daily_math' ? p.dailyEnglishLevel : p.dailyMathLevel;
+                
                 if (myLv > 0 && myLv % 20 === 0 && otherLv < myLv) {
                     alert(`🚧 階段性挑戰！請先把另一科目的挑戰(目前 Lv.${otherLv})追上來到 Lv.${myLv} 才能解鎖下一階段喔！`);
                     return;
                 }
+
+                const ruleKey = playerKey === 'mom' ? momMode : playerKey;
+                gameRuleKeyRef.current = ruleKey;
+
                 setGameMode(mode); setPlayerHp(100); setHp(100); setScore(p.dailyScore);
                 const startLv = Math.floor(myLv / 10) * 10 + 1;
                 setDailyLevel(startLv); nextTurn(mode); setScreen('game');
             };
 
             const nextTurn = (mode) => {
-                const q = mode.includes('math') ? generateMathQuestion(playerKey) : generateEnglishQuestion(playerKey);
+                const currentRuleKey = gameRuleKeyRef.current;
+                const q = mode.includes('math') ? generateMathQuestion(currentRuleKey) : generateEnglishQuestion(currentRuleKey);
                 setQuestion(q); setTimer(q.time); setUserAnswer(''); setFeedback(null); setHp(100);
                 const sc = SCENARIOS[Math.floor(Math.random() * SCENARIOS.length)];
                 setScenario(sc); playMusic(sc.type);
@@ -199,10 +280,8 @@
                 }, 1500);
             };
 
-            // --- 畫面渲染 ---
             return (
                 <div className="w-full h-screen bg-indigo-900 flex flex-col overflow-hidden relative">
-                    {/* 音樂啟動遮罩 */}
                     {screen === 'menu' && !audioStarted && (
                         <div className="absolute inset-0 z-50 bg-black/90 flex items-center justify-center cursor-pointer" onClick={()=>{initAudio(); setAudioStarted(true); playMusic('menu');}}>
                             <div className="text-center animate-pulse">
@@ -217,18 +296,24 @@
                         <div className="p-4 flex flex-col items-center justify-center h-full">
                             <h1 className="text-4xl font-black text-yellow-400 mb-6 drop-shadow-lg">⚔️ 印家英雄榜 ⚔️</h1>
                             
-                            {/* 角色選擇 */}
-                            <div className="flex gap-2 mb-6 bg-black/20 p-1 rounded-xl w-full max-w-sm">
+                            <div className="flex gap-2 mb-6 bg-black/20 p-1 rounded-xl w-full max-w-lg">
                                 {Object.values(CHARACTERS).map(c => (
                                     <button key={c.id} onClick={() => setPlayerKey(c.id)} className={`flex-1 py-3 rounded-lg flex items-center justify-center gap-2 font-bold transition-all ${playerKey === c.id ? 'bg-yellow-500 text-black' : 'text-gray-400'}`}>
-                                        <span className="text-xl">{c.avatar}</span> {c.name}
+                                        <span className="text-xl">{c.avatar}</span> <span className="hidden sm:inline">{c.name}</span>
                                     </button>
                                 ))}
                             </div>
 
-                            {/* 主要操作區 */}
                             <div className="bg-white/10 p-6 rounded-[2.5rem] border-4 border-white/20 flex flex-col items-center backdrop-blur-sm w-full max-w-sm mb-6">
                                 <div className="text-7xl mb-2 transform hover:scale-110 transition-transform">{CHARACTERS[playerKey].avatar}</div>
+                                
+                                {playerKey === 'mom' && (
+                                    <div className="flex bg-black/30 rounded-full p-1 mb-4 w-full text-sm font-bold">
+                                        <button onClick={() => setMomMode('daughter')} className={`flex-1 py-1 rounded-full transition-all ${momMode === 'daughter' ? 'bg-pink-600 text-white' : 'text-gray-400'}`}>測妹妹</button>
+                                        <button onClick={() => setMomMode('son')} className={`flex-1 py-1 rounded-full transition-all ${momMode === 'son' ? 'bg-blue-600 text-white' : 'text-gray-400'}`}>測哥哥</button>
+                                    </div>
+                                )}
+
                                 <div className="grid grid-cols-2 gap-3 w-full mt-4">
                                     <button onClick={() => handleStart('daily_math')} className="bg-orange-500 p-4 rounded-2xl font-bold flex flex-col items-center relative shadow-lg active:translate-y-1 transition-all hover:bg-orange-400">
                                         <div className="text-3xl mb-1">🧮</div>
@@ -243,17 +328,15 @@
                                 </div>
                             </div>
 
-                            {/* 底部按鈕 */}
                             <div className="flex gap-6 text-sm font-bold text-gray-400">
                                 <button onClick={() => setScreen('vocab')} className="flex items-center gap-1 hover:text-white bg-white/5 px-4 py-2 rounded-full"><span className="text-lg">📖</span> 單字本</button>
-                                <button onClick={() => { const p = prompt("密碼?"); if (p === PARENT_PASSWORD) setScreen('settings'); }} className="flex items-center gap-1 hover:text-white bg-white/5 px-4 py-2 rounded-full"><span className="text-lg">⚙️</span> 管理中心</button>
+                                <button onClick={() => setScreen('settings')} className="flex items-center gap-1 hover:text-white bg-white/5 px-4 py-2 rounded-full"><span className="text-lg">⚙️</span> 管理中心</button>
                             </div>
                         </div>
                     )}
 
                     {screen === 'game' && (
                         <div className="h-full flex flex-col bg-slate-900 text-white">
-                            {/* 頂部狀態欄 */}
                             <div className="p-4 flex justify-between items-center bg-black/40 backdrop-blur-md border-b border-white/10">
                                 <div className="flex items-center gap-2">
                                     <div className="text-3xl">{CHARACTERS[playerKey].avatar}</div>
@@ -269,10 +352,8 @@
                                 </div>
                             </div>
 
-                            {/* 遊戲主區域 */}
                             <div className="flex-1 flex flex-col items-center justify-center p-6 relative">
                                 <div className="bg-white/10 backdrop-blur-lg p-8 rounded-[2rem] w-full max-w-xl text-center border border-white/20 shadow-2xl relative overflow-hidden">
-                                    {/* 答題反饋遮罩 */}
                                     {feedback && <div className={`absolute inset-0 bg-black/80 flex items-center justify-center text-8xl font-bold z-20 ${feedback==='correct'?'text-green-500':'text-red-500'} animate-pulse`}>{feedback === 'correct' ? '⭕' : '❌'}</div>}
                                     
                                     <h3 className="text-blue-300 text-sm font-bold mb-4 uppercase tracking-widest bg-black/30 inline-block px-3 py-1 rounded-full">{gameMode.includes('math') ? 'MATH MISSION' : `ENGLISH: ${question.hint}`}</h3>
@@ -282,7 +363,7 @@
                                     {gameMode.includes('english') && inputMode === 'select' ? (
                                         <div className="grid grid-cols-2 gap-4">
                                             {question.options.map(opt => (
-                                                <button key={opt} onClick={()=>handleAnswer(opt)} className="bg-white/10 hover:bg-indigo-600 py-4 rounded-xl text-xl font-bold border-2 border-white/10 active:scale-95 transition-all shadow-lg">{opt}</button>
+                                                <button key={opt} onClick={()=>handleAnswer(opt)} className="bg-white/10 hover:bg-indigo-600 py-4 rounded-2xl text-xl font-bold border-2 border-white/10 active:scale-95 transition-all shadow-lg">{opt}</button>
                                             ))}
                                         </div>
                                     ) : (
@@ -328,12 +409,8 @@
                             </div>
                             <div className="space-y-6">
                                 <div className="bg-white/5 p-6 rounded-2xl border border-white/10">
-                                    <h3 className="font-bold mb-4 flex items-center gap-2 text-lg">💾 進度備份與同步</h3>
-                                    <div className="flex flex-col gap-3">
-                                        <button onClick={() => { const code = btoa(JSON.stringify({ stats, vocabMap, mathSettings, rewards })); navigator.clipboard.writeText(code); alert("存檔代碼已複製！請傳送到另一台裝置。"); }} className="w-full bg-blue-600 p-4 rounded-xl font-bold shadow-lg active:scale-95">複製存檔代碼 (匯出)</button>
-                                        <button onClick={() => { const code = prompt("請貼上存檔代碼"); if (code) { try { const d = JSON.parse(atob(code)); setStats(d.stats); setVocabMap(d.vocabMap); setMathSettings(d.mathSettings); setRewards(d.rewards); alert("讀取成功！進度已同步。"); } catch(e){alert("代碼錯誤！");} } }} className="w-full bg-orange-600 p-4 rounded-xl font-bold shadow-lg active:scale-95">讀取存檔代碼 (匯入)</button>
-                                    </div>
-                                    <p className="text-xs text-gray-500 text-center mt-3">提示：想在電腦玩 iPad 的進度？在 iPad 按複製，傳給電腦貼上讀取即可。</p>
+                                    <h3 className="font-bold mb-4 flex items-center gap-2 text-lg">💡 提示</h3>
+                                    <p className="text-gray-400 text-sm">請使用上方的分頁切換來設定單字庫、數學難度和獎勵內容。</p>
                                 </div>
                             </div>
                         </div>
