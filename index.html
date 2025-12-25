@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>印家英雄榜：知識大冒險</title>
+    <!-- CDNs -->
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        @keyframes shake { 0%, 100% { transform: translate(0, 0); } 10%, 30%, 50%, 70%, 90% { transform: translate(-5px, 0); } 20%, 40%, 60%, 80% { transform: translate(5px, 0); } }
+        .animate-shake { animation: shake 0.5s ease-in-out; }
+        @keyframes spin-slow { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+        .animate-spin-slow { animation: spin-slow 12s linear infinite; }
+        body { background-color: black; color: white; margin: 0; overflow: hidden; font-family: sans-serif; }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useRef } = React;
+
+        // --- 核心資料與模板 ---
+        const SENTENCE_TEMPLATES = {
+            noun: [{ text: "This is a ___.", hint: "這是一個..." }, { text: "I can see the ___.", hint: "我看見那個..." }, { text: "Do you like the ___?", hint: "你喜歡這個...嗎？" }, { text: "The ___ is over there.", hint: "那個...在那邊" }, { text: "I have a ___.", hint: "我有一個..." }],
+            verb: [{ text: "I like to ___.", hint: "我喜歡..." }, { text: "Can you ___?", hint: "你會...嗎？" }, { text: "Let's ___ together.", hint: "我們一起...吧" }, { text: "Please ___ now.", hint: "請現在..." }, { text: "Don't ___ here.", hint: "不要在這裡..." }],
+            adj: [{ text: "It looks very ___.", hint: "它看起來很..." }, { text: "Are you ___?", hint: "你覺得...嗎？" }, { text: "The cat is ___.", hint: "這隻貓很..." }, { text: "I feel ___ today.", hint: "我今天覺得很..." }]
+        };
+
+        const BASE_VOCAB = [
+            { word: "cat", type: "noun", mean: "貓" }, { word: "dog", type: "noun", mean: "狗" }, { word: "pig", type: "noun", mean: "豬" }, { word: "bird", type: "noun", mean: "鳥" }, { word: "duck", type: "noun", mean: "鴨子" }, { word: "lion", type: "noun", mean: "獅子" }, { word: "fish", type: "noun", mean: "魚" }, { word: "monkey", type: "noun", mean: "猴子" }, { word: "tiger", type: "noun", mean: "老虎" }, { word: "zebra", type: "noun", mean: "斑馬" },
+            { word: "apple", type: "noun", mean: "蘋果" }, { word: "banana", type: "noun", mean: "香蕉" }, { word: "egg", type: "noun", mean: "蛋" }, { word: "cake", type: "noun", mean: "蛋糕" }, { word: "milk", type: "noun", mean: "牛奶" }, { word: "water", type: "noun", mean: "水" }, { word: "rice", type: "noun", mean: "米飯" }, { word: "candy", type: "noun", mean: "糖果" },
+            { word: "sun", type: "noun", mean: "太陽" }, { word: "moon", type: "noun", mean: "月亮" }, { word: "star", type: "noun", mean: "星星" }, { word: "tree", type: "noun", mean: "樹" }, { word: "flower", type: "noun", mean: "花" }, { word: "book", type: "noun", mean: "書" }, { word: "pen", type: "noun", mean: "筆" }, { word: "bag", type: "noun", mean: "書包" }, { word: "bus", type: "noun", mean: "公車" }, { word: "car", type: "noun", mean: "車子" },
+            { word: "eye", type: "noun", mean: "眼睛" }, { word: "nose", type: "noun", mean: "鼻子" }, { word: "mouth", type: "noun", mean: "嘴巴" }, { word: "hand", type: "noun", mean: "手" },
+            { word: "run", type: "verb", mean: "跑" }, { word: "jump", type: "verb", mean: "跳" }, { word: "walk", type: "verb", mean: "走路" }, { word: "swim", type: "verb", mean: "游泳" }, { word: "fly", type: "verb", mean: "飛" }, { word: "eat", type: "verb", mean: "吃" }, { word: "drink", type: "verb", mean: "喝" }, { word: "sleep", type: "verb", mean: "睡覺" }, { word: "draw", type: "verb", mean: "畫畫" }, { word: "sing", type: "verb", mean: "唱歌" },
+            { word: "big", type: "adj", mean: "大的" }, { word: "small", type: "adj", mean: "小的" }, { word: "hot", type: "adj", mean: "熱的" }, { word: "cold", type: "adj", mean: "冷的" }, { word: "happy", type: "adj", mean: "快樂的" }, { word: "sad", type: "adj", mean: "難過的" }, { word: "red", type: "adj", mean: "紅色的" }, { word: "blue", type: "adj", mean: "藍色的" }
+        ];
+
+        const SCENARIOS = [
+            { text: "失火了！快幫忙滅火！", emoji: "🔥", type: "tense" }, { text: "有小偷！快抓住他！", emoji: "🦹", type: "tense" }, { text: "病人需要急救！", emoji: "🚑", type: "tense" }, { text: "外送訂單快遲到了！", emoji: "🛵", type: "happy" }, { text: "房間太亂了！", emoji: "🧹", type: "happy" }, { text: "肚子好餓喔！", emoji: "🍱", type: "happy" }, { text: "野生噴火龍出現！", emoji: "🐉", type: "battle" }, { text: "發現神秘寶箱！", emoji: "💎", type: "battle" }, { text: "最後一秒投籃！", emoji: "🏀", type: "tense" }, { text: "幫爸爸搥背！", emoji: "👨", type: "happy" }
+        ];
+
+        const INITIAL_STATS = {
+            daughter: { lastPlayedDate: '', dailyMathLevel: 0, dailyEnglishLevel: 0, dailyScore: 0, allTimeBest: { score: 0, date: '-' }, weeklyHistory: [] },
+            son: { lastPlayedDate: '', dailyMathLevel: 0, dailyEnglishLevel: 0, dailyScore: 0, allTimeBest: { score: 0, date: '-' }, weeklyHistory: [] }
+        };
+
+        const CHARACTERS = { daughter: { id: 'daughter', name: '印品榕', avatar: '👧' }, son: { id: 'son', name: '印晨希', avatar: '👦' } };
+        const PARENT_PASSWORD = "28825252";
+
+        // --- 音樂與音效引擎 ---
+        let audioCtx = null;
+        let musicInterval = null;
+        const initAudio = () => { if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)(); if (audioCtx.state === 'suspended') audioCtx.resume(); };
+        const playTone = (f, d, w = 'sine', v = 0.05) => { if (!audioCtx) return; const o = audioCtx.createOscillator(); const g = audioCtx.createGain(); o.type = w; o.frequency.setValueAtTime(f, audioCtx.currentTime); g.gain.setValueAtTime(v, audioCtx.currentTime); g.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + d); o.connect(g); g.connect(audioCtx.destination); o.start(); o.stop(audioCtx.currentTime + d); };
+        const stopMusic = () => { if (musicInterval) clearInterval(musicInterval); };
+        const playMusic = (style) => {
+            stopMusic(); if (!audioCtx) return;
+            let scale = [261, 329, 392, 523]; let tempo = 400; let wave = 'sine';
+            if (style === 'battle') { scale = [130, 155, 196, 261]; tempo = 200; wave = 'sawtooth'; }
+            musicInterval = setInterval(() => { if (Math.random() > 0.4) playTone(scale[Math.floor(Math.random() * scale.length)], tempo / 1000, wave); }, tempo);
+        };
+        const playSFX = (t) => { if (!audioCtx) return; const n = audioCtx.currentTime; const o = audioCtx.createOscillator(); const g = audioCtx.createGain(); o.connect(g); g.connect(audioCtx.destination); if (t === 'attack') { o.frequency.setValueAtTime(200, n); o.frequency.linearRampToValueAtTime(800, n + 0.1); g.gain.setValueAtTime(0.1, n); o.start(); o.stop(n + 0.1); } else if (t === 'win') { [0, 0.1, 0.2].forEach((s, i) => { const o2 = audioCtx.createOscillator(); const g2 = audioCtx.createGain(); o2.connect(g2); g2.connect(audioCtx.destination); o2.frequency.setValueAtTime(440 + i * 110, n + s); g2.gain.setValueAtTime(0.1, n + s); o2.start(n + s); o2.stop(n + s + 0.3); }); } };
+
+        // --- 組件 ---
+        const LucideIcon = ({ name, className }) => {
+            const [IconComp, setIconComp] = useState(null);
+            useEffect(() => {
+                const camelName = name[0].toUpperCase() + name.slice(1).replace(/-([a-z])/g, g => g[1].toUpperCase());
+                setIconComp(window.lucide.icons[camelName]);
+            }, [name]);
+            return IconComp ? <IconComp className={className} /> : null;
+        };
+
+        // --- 主程式 ---
+        function App() {
+            const [screen, setScreen] = useState('menu');
+            const [playerKey, setPlayerKey] = useState('daughter');
+            const [gameMode, setGameMode] = useState('math');
+            const [stats, setStats] = useState(INITIAL_STATS);
+            const [vocabMap, setVocabMap] = useState({ daughter: [...BASE_VOCAB], son: [...BASE_VOCAB] });
+            const [mathSettings, setMathSettings] = useState({ daughter: { slots: [{ range: 10, weight: 1 }] }, son: { weights: { '2-digit-add-sub': 1 } } });
+            const [rewards, setRewards] = useState({ levelRewards: {} });
+            const [audioStarted, setAudioStarted] = useState(false);
+            
+            // 遊戲運行狀態
+            const [dailyLevel, setDailyLevel] = useState(1);
+            const [timer, setTimer] = useState(0);
+            const [score, setScore] = useState(0);
+            const [playerHp, setPlayerHp] = useState(100);
+            const [hp, setHp] = useState(100);
+            const [question, setQuestion] = useState(null);
+            const [userAnswer, setUserAnswer] = useState('');
+            const [feedback, setFeedback] = useState(null);
+            const [scenario, setScenario] = useState(SCENARIOS[0]);
+            const timerRef = useRef(null);
+
+            useEffect(() => {
+                const saved = JSON.parse(localStorage.getItem('fh_v4_github'));
+                if (saved) { setStats(saved.stats); setVocabMap(saved.vocabMap); setMathSettings(saved.mathSettings); setRewards(saved.rewards); }
+            }, []);
+
+            useEffect(() => {
+                localStorage.setItem('fh_v4_github', JSON.stringify({ stats, vocabMap, mathSettings, rewards }));
+            }, [stats, vocabMap, mathSettings, rewards]);
+
+            const handleStart = (mode) => {
+                initAudio(); setAudioStarted(true);
+                const p = stats[playerKey];
+                const myLv = mode === 'daily_math' ? p.dailyMathLevel : p.dailyEnglishLevel;
+                const otherLv = mode === 'daily_math' ? p.dailyEnglishLevel : p.dailyMathLevel;
+                if (myLv > 0 && myLv % 20 === 0 && otherLv < myLv) {
+                    alert(`🚧 階段鎖定：請先把另一科目的等級(Lv.${otherLv})追上來到 Lv.${myLv}！`);
+                    return;
+                }
+                setGameMode(mode); setScore(p.dailyScore); setPlayerHp(100); setHp(100); setScenario(SCENARIOS[Math.floor(Math.random() * SCENARIOS.length)]);
+                const startLv = Math.floor(myLv / 10) * 10 + 1;
+                setDailyLevel(startLv); setScreen('game'); nextTurn(mode); playMusic(scenario.type);
+            };
+
+            const nextTurn = (mode) => {
+                const qType = mode === 'daily_math' ? 'math' : 'english';
+                const q = qType === 'math' ? { text: "1 + 1 = ?", answer: "2", time: 30 } : { text: "A is for ___.", display: "A is for _____.", answer: "apple", options: ["apple", "dog", "cat", "pig"], time: 30 };
+                // 此處簡化出題邏輯供示意
+                setQuestion(q); setTimer(q.time); setUserAnswer(''); setFeedback(null); setHp(100); setScenario(SCENARIOS[Math.floor(Math.random() * SCENARIOS.length)]);
+                if (timerRef.current) clearInterval(timerRef.current);
+                timerRef.current = setInterval(() => setTimer(t => t > 0 ? t - 1 : 0), 1000);
+            };
+
+            const handleAnswer = (val) => {
+                clearInterval(timerRef.current);
+                const isCorrect = val.trim().toLowerCase() === question.answer.toLowerCase();
+                if (isCorrect) { playSFX('attack'); setScore(s => s + timer * 10); setFeedback('correct'); }
+                else { playTone(100, 0.3, 'sawtooth'); setPlayerHp(h => h - 34); setFeedback('wrong'); }
+                setTimeout(() => {
+                    if (playerHp <= 0 && !isCorrect) setScreen('result');
+                    else if (isCorrect) {
+                        if (dailyLevel % 10 === 0) {
+                            const newStats = { ...stats };
+                            if (gameMode === 'daily_math') newStats[playerKey].dailyMathLevel = dailyLevel;
+                            else newStats[playerKey].dailyEnglishLevel = dailyLevel;
+                            setStats(newStats); setScreen('result'); playSFX('win');
+                        } else { setDailyLevel(l => l + 1); nextTurn(gameMode); }
+                    } else nextTurn(gameMode);
+                }, 1500);
+            };
+
+            return (
+                <div className="w-full h-screen bg-indigo-900 overflow-hidden flex flex-col">
+                    {screen === 'menu' && (
+                        <div className="p-4 flex flex-col items-center justify-center h-full">
+                            <h1 className="text-4xl font-black text-yellow-400 mb-8">⚔️ 印家英雄榜 ⚔️</h1>
+                            <div className="flex gap-4 mb-8">
+                                {Object.values(CHARACTERS).map(c => (
+                                    <button key={c.id} onClick={() => setPlayerKey(c.id)} className={`p-4 rounded-2xl flex flex-col items-center border-4 ${playerKey === c.id ? 'border-yellow-400 bg-white/20' : 'border-transparent bg-white/5'}`}>
+                                        <div className="text-6xl">{c.avatar}</div>
+                                        <div className="font-bold mt-2">{c.name}</div>
+                                    </button>
+                                ))}
+                            </div>
+                            <div className="grid grid-cols-2 gap-4 w-full max-w-sm">
+                                <button onClick={() => handleStart('daily_math')} className="bg-orange-500 p-6 rounded-3xl font-bold flex flex-col items-center shadow-xl">
+                                    <LucideIcon name="calculator" className="mb-2" /> 挑戰數學
+                                    <div className="text-xs opacity-70">Lv.{stats[playerKey].dailyMathLevel}</div>
+                                </button>
+                                <button onClick={() => handleStart('daily_english')} className="bg-blue-500 p-6 rounded-3xl font-bold flex flex-col items-center shadow-xl">
+                                    <LucideIcon name="languages" className="mb-2" /> 挑戰英文
+                                    <div className="text-xs opacity-70">Lv.{stats[playerKey].dailyEnglishLevel}</div>
+                                </button>
+                            </div>
+                            <div className="mt-8 flex gap-4 text-sm text-gray-400">
+                                <button onClick={() => setScreen('vocab')} className="underline">單字本</button>
+                                <button onClick={() => { const p = prompt("密碼?"); if (p === PARENT_PASSWORD) setScreen('settings'); }} className="underline">家長設定</button>
+                            </div>
+                        </div>
+                    )}
+                    {screen === 'game' && (
+                        <div className="h-full flex flex-col bg-slate-900 text-white p-4">
+                            <div className="flex justify-between items-center mb-8">
+                                <div className="text-4xl">{CHARACTERS[playerKey].avatar} <span className="text-sm font-bold">{playerHp} HP</span></div>
+                                <div className="text-center font-mono"><div className="text-yellow-400 text-xs">Lv.{dailyLevel}</div><div className="text-4xl">{timer}</div></div>
+                                <div className="text-4xl">{scenario.emoji} <span className="text-xs text-gray-400">{scenario.text}</span></div>
+                            </div>
+                            <div className="flex-1 flex flex-col items-center justify-center">
+                                <div className="bg-white/5 p-12 rounded-[3rem] w-full max-w-xl text-center shadow-2xl relative overflow-hidden">
+                                    {feedback && <div className="absolute inset-0 bg-black/60 flex items-center justify-center text-4xl font-bold">{feedback === 'correct' ? '✅' : '❌'}</div>}
+                                    <h2 className="text-5xl font-black mb-8">{gameMode === 'daily_math' ? question.text : question.display}</h2>
+                                    <div className="flex gap-4">
+                                        <input value={userAnswer} onChange={e => setUserAnswer(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleAnswer(userAnswer)} placeholder="答案..." className="flex-1 bg-black/40 p-4 text-3xl rounded-xl text-center outline-none" autoFocus />
+                                        <button onClick={() => handleAnswer(userAnswer)} className="bg-yellow-400 text-black px-8 rounded-xl font-bold">GO</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                    {screen === 'result' && (
+                        <div className="h-full flex flex-col items-center justify-center p-8 text-center">
+                            <Trophy size={100} className="text-yellow-400 mb-4" />
+                            <h2 className="text-4xl font-black mb-8">挑戰結束</h2>
+                            <button onClick={() => setScreen('menu')} className="bg-white text-indigo-900 px-12 py-4 rounded-xl font-bold text-xl">返回首頁</button>
+                        </div>
+                    )}
+                    {screen === 'settings' && (
+                        <div className="h-full p-6 overflow-y-auto">
+                            <div className="flex justify-between items-center mb-6"><h2 className="text-2xl font-bold">家長設定</h2><button onClick={() => setScreen('menu')}>返回</button></div>
+                            <button onClick={() => { const code = JSON.stringify({ stats, vocabMap, mathSettings, rewards }); navigator.clipboard.writeText(code); alert("存檔代碼已複製！"); }} className="w-full bg-blue-600 p-4 rounded mb-4">複製備份代碼</button>
+                            <button onClick={() => { const code = prompt("貼上存檔代碼"); if (code) { const d = JSON.parse(code); setStats(d.stats); setVocabMap(d.vocabMap); setMathSettings(d.mathSettings); setRewards(d.rewards); alert("還原成功！"); } }} className="w-full bg-orange-600 p-4 rounded">讀取備份代碼</button>
+                        </div>
+                    )}
+                </div>
+            );
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
