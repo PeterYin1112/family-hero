@@ -2,21 +2,24 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>印家英雄榜：知識大冒險</title>
-    <!-- CDNs -->
+    <!-- React 核心 -->
     <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://unpkg.com/lucide@latest"></script>
     <style>
         @keyframes shake { 0%, 100% { transform: translate(0, 0); } 10%, 30%, 50%, 70%, 90% { transform: translate(-5px, 0); } 20%, 40%, 60%, 80% { transform: translate(5px, 0); } }
         .animate-shake { animation: shake 0.5s ease-in-out; }
         @keyframes spin-slow { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
         .animate-spin-slow { animation: spin-slow 12s linear infinite; }
-        body { background-color: black; color: white; margin: 0; overflow-x: hidden; font-family: sans-serif; }
+        @keyframes pulse-fast { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+        .animate-pulse-fast { animation: pulse-fast 1s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
+        body { background-color: #312e81; color: white; margin: 0; overflow-x: hidden; font-family: "Segoe UI", Roboto, Helvetica, Arial, sans-serif; -webkit-tap-highlight-color: transparent; }
         .no-select { user-select: none; -webkit-user-select: none; }
+        button:active { transform: scale(0.95); }
     </style>
 </head>
 <body class="no-select">
@@ -76,16 +79,6 @@
 
         const speakWord = (text) => { const u = new SpeechSynthesisUtterance(text); u.lang = 'en-US'; window.speechSynthesis.speak(u); };
 
-        // --- 組件 ---
-        const LucideIcon = ({ name, className }) => {
-            const [IconComp, setIconComp] = useState(null);
-            useEffect(() => {
-                const camelName = name[0].toUpperCase() + name.slice(1).replace(/-([a-z])/g, g => g[1].toUpperCase());
-                setIconComp(window.lucide.icons[camelName]);
-            }, [name]);
-            return IconComp ? <IconComp className={className} /> : null;
-        };
-
         // --- 主程式 ---
         function App() {
             const [screen, setScreen] = useState('menu');
@@ -97,7 +90,6 @@
             const [rewards, setRewards] = useState({ levelRewards: {}, dailyScore: Array(5).fill({score:0, reward:""}) });
             const [audioStarted, setAudioStarted] = useState(false);
             
-            // 遊戲運行狀態
             const [dailyLevel, setDailyLevel] = useState(1);
             const [timer, setTimer] = useState(0);
             const [score, setScore] = useState(0);
@@ -121,6 +113,7 @@
 
             const pickWeighted = (options) => {
                 const total = options.reduce((acc, cur) => acc + cur.weight, 0);
+                if(total === 0) return options[0].item;
                 let random = Math.random() * total;
                 for (let opt of options) { if (random < opt.weight) return opt.item; random -= opt.weight; }
                 return options[0].item;
@@ -206,15 +199,25 @@
                 }, 1500);
             };
 
+            // --- 畫面渲染 ---
             return (
-                <div className="w-full h-screen bg-indigo-900 flex flex-col overflow-hidden">
+                <div className="w-full h-screen bg-indigo-900 flex flex-col overflow-hidden relative">
+                    {/* 音樂啟動遮罩 */}
+                    {screen === 'menu' && !audioStarted && (
+                        <div className="absolute inset-0 z-50 bg-black/90 flex items-center justify-center cursor-pointer" onClick={()=>{initAudio(); setAudioStarted(true); playMusic('menu');}}>
+                            <div className="text-center animate-pulse">
+                                <div className="text-6xl mb-4">🎵</div>
+                                <h2 className="text-2xl font-bold text-white">點擊畫面開始遊戲</h2>
+                                <p className="text-gray-400 text-sm mt-2">開啟音效與背景音樂</p>
+                            </div>
+                        </div>
+                    )}
+
                     {screen === 'menu' && (
-                        <div className="p-4 flex flex-col items-center justify-center h-full relative">
-                            {!audioStarted && <div className="absolute inset-0 z-50 bg-black/80 flex items-center justify-center cursor-pointer" onClick={()=>{initAudio(); setAudioStarted(true); playMusic('menu');}}>
-                                <div className="text-center"><LucideIcon name="music" className="mx-auto mb-4 text-yellow-400 w-16 h-16"/><h2 className="text-2xl font-bold">點擊開始音樂遊戲</h2></div>
-                            </div>}
+                        <div className="p-4 flex flex-col items-center justify-center h-full">
                             <h1 className="text-4xl font-black text-yellow-400 mb-6 drop-shadow-lg">⚔️ 印家英雄榜 ⚔️</h1>
                             
+                            {/* 角色選擇 */}
                             <div className="flex gap-2 mb-6 bg-black/20 p-1 rounded-xl w-full max-w-sm">
                                 {Object.values(CHARACTERS).map(c => (
                                     <button key={c.id} onClick={() => setPlayerKey(c.id)} className={`flex-1 py-3 rounded-lg flex items-center justify-center gap-2 font-bold transition-all ${playerKey === c.id ? 'bg-yellow-500 text-black' : 'text-gray-400'}`}>
@@ -223,58 +226,78 @@
                                 ))}
                             </div>
 
+                            {/* 主要操作區 */}
                             <div className="bg-white/10 p-6 rounded-[2.5rem] border-4 border-white/20 flex flex-col items-center backdrop-blur-sm w-full max-w-sm mb-6">
-                                <div className="text-7xl mb-2">{CHARACTERS[playerKey].avatar}</div>
+                                <div className="text-7xl mb-2 transform hover:scale-110 transition-transform">{CHARACTERS[playerKey].avatar}</div>
                                 <div className="grid grid-cols-2 gap-3 w-full mt-4">
-                                    <button onClick={() => handleStart('daily_math')} className="bg-orange-500 p-4 rounded-2xl font-bold flex flex-col items-center relative shadow-lg active:translate-y-1 transition-all">
-                                        <LucideIcon name="calculator" className="mb-1 w-8 h-8" />挑戰數學
-                                        <div className="text-xs opacity-70">Lv.{stats[playerKey].dailyMathLevel}</div>
+                                    <button onClick={() => handleStart('daily_math')} className="bg-orange-500 p-4 rounded-2xl font-bold flex flex-col items-center relative shadow-lg active:translate-y-1 transition-all hover:bg-orange-400">
+                                        <div className="text-3xl mb-1">🧮</div>
+                                        <span>挑戰數學</span>
+                                        <div className="text-xs opacity-70 bg-black/20 px-2 rounded-full mt-1">Lv.{stats[playerKey].dailyMathLevel}</div>
                                     </button>
-                                    <button onClick={() => handleStart('daily_english')} className="bg-blue-500 p-4 rounded-2xl font-bold flex flex-col items-center relative shadow-lg active:translate-y-1 transition-all">
-                                        <LucideIcon name="languages" className="mb-1 w-8 h-8" />挑戰英文
-                                        <div className="text-xs opacity-70">Lv.{stats[playerKey].dailyEnglishLevel}</div>
+                                    <button onClick={() => handleStart('daily_english')} className="bg-blue-500 p-4 rounded-2xl font-bold flex flex-col items-center relative shadow-lg active:translate-y-1 transition-all hover:bg-blue-400">
+                                        <div className="text-3xl mb-1">🗣️</div>
+                                        <span>挑戰英文</span>
+                                        <div className="text-xs opacity-70 bg-black/20 px-2 rounded-full mt-1">Lv.{stats[playerKey].dailyEnglishLevel}</div>
                                     </button>
                                 </div>
                             </div>
 
+                            {/* 底部按鈕 */}
                             <div className="flex gap-6 text-sm font-bold text-gray-400">
-                                <button onClick={() => setScreen('vocab')} className="flex items-center gap-1 hover:text-white"><LucideIcon name="book-open" className="w-4 h-4"/>單字本</button>
-                                <button onClick={() => { const p = prompt("密碼?"); if (p === PARENT_PASSWORD) setScreen('settings'); }} className="flex items-center gap-1 hover:text-white"><LucideIcon name="settings-2" className="w-4 h-4"/>管理中心</button>
+                                <button onClick={() => setScreen('vocab')} className="flex items-center gap-1 hover:text-white bg-white/5 px-4 py-2 rounded-full"><span className="text-lg">📖</span> 單字本</button>
+                                <button onClick={() => { const p = prompt("密碼?"); if (p === PARENT_PASSWORD) setScreen('settings'); }} className="flex items-center gap-1 hover:text-white bg-white/5 px-4 py-2 rounded-full"><span className="text-lg">⚙️</span> 管理中心</button>
                             </div>
                         </div>
                     )}
 
                     {screen === 'game' && (
                         <div className="h-full flex flex-col bg-slate-900 text-white">
-                            <div className="p-4 flex justify-between items-center bg-black/40 backdrop-blur-md">
+                            {/* 頂部狀態欄 */}
+                            <div className="p-4 flex justify-between items-center bg-black/40 backdrop-blur-md border-b border-white/10">
                                 <div className="flex items-center gap-2">
                                     <div className="text-3xl">{CHARACTERS[playerKey].avatar}</div>
-                                    <div className="h-2 w-20 bg-gray-700 rounded-full overflow-hidden"><div className="h-full bg-green-500 transition-all" style={{width: `${playerHp}%`}}/></div>
+                                    <div className="h-3 w-24 bg-gray-700 rounded-full overflow-hidden border border-gray-600"><div className="h-full bg-green-500 transition-all duration-300" style={{width: `${playerHp}%`}}/></div>
                                 </div>
-                                <div className="text-center font-mono"><div className="text-yellow-400 text-xs uppercase font-bold">Lv.{dailyLevel}</div><div className={`text-4xl font-bold ${timer < 10 ? 'text-red-500 animate-pulse' : 'text-white'}`}>{timer}</div></div>
+                                <div className="text-center font-mono">
+                                    <div className="text-yellow-400 text-xs uppercase font-bold tracking-wider">LEVEL {dailyLevel}</div>
+                                    <div className={`text-4xl font-bold ${timer < 10 ? 'text-red-500 animate-pulse' : 'text-white'}`}>{timer}</div>
+                                </div>
                                 <div className="text-right">
                                     <div className="text-3xl">{scenario.emoji}</div>
-                                    <div className="text-[10px] text-gray-500">{scenario.text}</div>
+                                    <div className="text-[10px] text-gray-400">{scenario.text}</div>
                                 </div>
                             </div>
 
+                            {/* 遊戲主區域 */}
                             <div className="flex-1 flex flex-col items-center justify-center p-6 relative">
-                                <div className="bg-white/5 backdrop-blur-lg p-10 rounded-[3rem] w-full max-w-xl text-center border border-white/10 shadow-2xl relative overflow-hidden">
-                                    {feedback && <div className={`absolute inset-0 bg-black/60 flex items-center justify-center text-8xl font-bold z-10 ${feedback==='correct'?'text-green-500':'text-red-500'}`}>{feedback === 'correct' ? '✅' : '❌'}</div>}
-                                    <h3 className="text-blue-400 text-sm font-bold mb-2 uppercase tracking-widest">{gameMode.includes('math') ? 'MATH' : `ENGLISH (${question.hint})`}</h3>
-                                    <h2 className="text-5xl font-black mb-10 leading-tight">{gameMode.includes('math') ? question.text : question.display}</h2>
+                                <div className="bg-white/10 backdrop-blur-lg p-8 rounded-[2rem] w-full max-w-xl text-center border border-white/20 shadow-2xl relative overflow-hidden">
+                                    {/* 答題反饋遮罩 */}
+                                    {feedback && <div className={`absolute inset-0 bg-black/80 flex items-center justify-center text-8xl font-bold z-20 ${feedback==='correct'?'text-green-500':'text-red-500'} animate-pulse`}>{feedback === 'correct' ? '⭕' : '❌'}</div>}
+                                    
+                                    <h3 className="text-blue-300 text-sm font-bold mb-4 uppercase tracking-widest bg-black/30 inline-block px-3 py-1 rounded-full">{gameMode.includes('math') ? 'MATH MISSION' : `ENGLISH: ${question.hint}`}</h3>
+                                    
+                                    <h2 className="text-4xl md:text-5xl font-black mb-8 leading-tight drop-shadow-md">{gameMode.includes('math') ? question.text : question.display}</h2>
                                     
                                     {gameMode.includes('english') && inputMode === 'select' ? (
                                         <div className="grid grid-cols-2 gap-4">
-                                            {question.options.map(opt => <button key={opt} onClick={()=>handleAnswer(opt)} className="bg-white/5 hover:bg-indigo-600 py-4 rounded-2xl text-2xl font-bold border border-white/10 active:scale-95 transition-all">{opt}</button>)}
+                                            {question.options.map(opt => (
+                                                <button key={opt} onClick={()=>handleAnswer(opt)} className="bg-white/10 hover:bg-indigo-600 py-4 rounded-xl text-xl font-bold border-2 border-white/10 active:scale-95 transition-all shadow-lg">{opt}</button>
+                                            ))}
                                         </div>
                                     ) : (
                                         <div className="flex gap-2">
-                                            <input value={userAnswer} onChange={e => setUserAnswer(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleAnswer(userAnswer)} placeholder="ANSWER..." className="flex-1 bg-black/40 border-2 border-white/20 p-5 text-3xl rounded-2xl text-center outline-none focus:border-yellow-400" autoFocus />
-                                            <button onClick={() => handleAnswer(userAnswer)} className="bg-yellow-400 text-black px-10 rounded-2xl font-black text-xl">GO</button>
+                                            <input value={userAnswer} onChange={e => setUserAnswer(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleAnswer(userAnswer)} placeholder="輸入答案..." className="flex-1 bg-black/50 border-2 border-white/30 p-4 text-3xl rounded-xl text-center outline-none focus:border-yellow-400 transition-colors text-white placeholder-gray-600" autoFocus type={gameMode.includes('math') && !question.isRemain ? "tel" : "text"} />
+                                            <button onClick={() => handleAnswer(userAnswer)} className="bg-yellow-400 text-black px-8 rounded-xl font-black text-xl shadow-lg active:scale-95">GO</button>
                                         </div>
                                     )}
-                                    {gameMode.includes('english') && <div className="mt-6 flex justify-center gap-2 text-xs font-bold"><button onClick={()=>setInputMode('select')} className={`px-4 py-1 rounded-full ${inputMode==='select'?'bg-blue-600':'bg-white/5 text-gray-500'}`}>選擇</button><button onClick={()=>setInputMode('type')} className={`px-4 py-1 rounded-full ${inputMode==='type'?'bg-purple-600':'bg-white/5 text-gray-500'}`}>拼字</button></div>}
+                                    
+                                    {gameMode.includes('english') && (
+                                        <div className="mt-8 flex justify-center gap-2 text-xs font-bold">
+                                            <button onClick={()=>setInputMode('select')} className={`px-4 py-2 rounded-full transition-colors ${inputMode==='select'?'bg-blue-600 text-white':'bg-white/10 text-gray-400'}`}>選擇題</button>
+                                            <button onClick={()=>setInputMode('type')} className={`px-4 py-2 rounded-full transition-colors ${inputMode==='type'?'bg-purple-600 text-white':'bg-white/10 text-gray-400'}`}>拼字題 (加分)</button>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                         </div>
@@ -282,10 +305,16 @@
 
                     {screen === 'vocab' && (
                         <div className="h-full bg-slate-900 p-6 overflow-y-auto">
-                            <div className="flex justify-between items-center mb-6"><h2 className="text-2xl font-bold">單字本</h2><button onClick={() => setScreen('menu')} className="bg-gray-700 px-4 py-2 rounded-lg">返回</button></div>
-                            <div className="grid grid-cols-2 gap-3">
+                            <div className="flex justify-between items-center mb-6 border-b border-gray-700 pb-4">
+                                <h2 className="text-2xl font-bold flex items-center gap-2">📖 單字本</h2>
+                                <button onClick={() => setScreen('menu')} className="bg-gray-700 px-4 py-2 rounded-lg text-sm font-bold">返回</button>
+                            </div>
+                            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                                 {(vocabMap[playerKey]||BASE_VOCAB).map((v, i) => (
-                                    <div key={i} onClick={()=>speakWord(v.word)} className="bg-white/5 p-3 rounded-xl cursor-pointer hover:bg-white/10"><div className="font-bold text-blue-300">{v.word}</div><div className="text-xs text-gray-400">{v.mean}</div></div>
+                                    <div key={i} onClick={()=>speakWord(v.word)} className="bg-white/10 p-4 rounded-xl cursor-pointer hover:bg-white/20 border border-white/5 transition-colors active:scale-95">
+                                        <div className="font-bold text-blue-300 text-lg mb-1">{v.word}</div>
+                                        <div className="text-sm text-gray-400">{v.mean}</div>
+                                    </div>
                                 ))}
                             </div>
                         </div>
@@ -293,10 +322,19 @@
 
                     {screen === 'settings' && (
                         <div className="h-full p-6 bg-slate-900 overflow-y-auto">
-                            <div className="flex justify-between items-center mb-8 border-b border-gray-700 pb-4"><h2 className="text-2xl font-bold text-yellow-400">家長管理中心</h2><button onClick={() => setScreen('menu')} className="bg-gray-700 px-4 py-2 rounded-lg">退出</button></div>
-                            <div className="space-y-4">
-                                <div className="bg-white/5 p-6 rounded-2xl border border-white/10"><h3 className="font-bold mb-4 flex items-center gap-2"><LucideIcon name="download" className="w-5 h-5"/>存檔同步與備份</h3><div className="flex flex-col gap-3"><button onClick={() => { const code = btoa(JSON.stringify({ stats, vocabMap, mathSettings, rewards })); navigator.clipboard.writeText(code); alert("代碼已複製！"); }} className="w-full bg-blue-600 p-4 rounded-xl font-bold">複製存檔代碼</button><button onClick={() => { const code = prompt("貼上代碼"); if (code) { try { const d = JSON.parse(atob(code)); setStats(d.stats); setVocabMap(d.vocabMap); setMathSettings(d.mathSettings); setRewards(d.rewards); alert("還原成功！"); } catch(e){alert("錯誤！");} } }} className="w-full bg-orange-600 p-4 rounded-xl font-bold">還原存檔進度</button></div></div>
-                                <p className="text-xs text-gray-500 text-center italic">提示：在 iPad 上複製代碼，再到電腦貼上還原即可同步。</p>
+                            <div className="flex justify-between items-center mb-8 border-b border-gray-700 pb-4">
+                                <h2 className="text-2xl font-bold text-yellow-400 flex items-center gap-2">⚙️ 家長管理中心</h2>
+                                <button onClick={() => setScreen('menu')} className="bg-gray-700 px-4 py-2 rounded-lg text-sm font-bold">退出</button>
+                            </div>
+                            <div className="space-y-6">
+                                <div className="bg-white/5 p-6 rounded-2xl border border-white/10">
+                                    <h3 className="font-bold mb-4 flex items-center gap-2 text-lg">💾 進度備份與同步</h3>
+                                    <div className="flex flex-col gap-3">
+                                        <button onClick={() => { const code = btoa(JSON.stringify({ stats, vocabMap, mathSettings, rewards })); navigator.clipboard.writeText(code); alert("存檔代碼已複製！請傳送到另一台裝置。"); }} className="w-full bg-blue-600 p-4 rounded-xl font-bold shadow-lg active:scale-95">複製存檔代碼 (匯出)</button>
+                                        <button onClick={() => { const code = prompt("請貼上存檔代碼"); if (code) { try { const d = JSON.parse(atob(code)); setStats(d.stats); setVocabMap(d.vocabMap); setMathSettings(d.mathSettings); setRewards(d.rewards); alert("讀取成功！進度已同步。"); } catch(e){alert("代碼錯誤！");} } }} className="w-full bg-orange-600 p-4 rounded-xl font-bold shadow-lg active:scale-95">讀取存檔代碼 (匯入)</button>
+                                    </div>
+                                    <p className="text-xs text-gray-500 text-center mt-3">提示：想在電腦玩 iPad 的進度？在 iPad 按複製，傳給電腦貼上讀取即可。</p>
+                                </div>
                             </div>
                         </div>
                     )}
@@ -304,9 +342,17 @@
                     {screen === 'result' && (
                         <div className="h-full flex flex-col items-center justify-center p-8 text-center animate-in fade-in zoom-in duration-500">
                             {dailyLevel % 10 === 0 && playerHp > 0 ? (
-                                <><Trophy size={120} className="text-yellow-400 mb-6 animate-bounce" /><h2 className="text-5xl font-black text-yellow-400 mb-4">大獲全勝！</h2><p className="text-gray-400 mb-10 text-xl">已通過第 {dailyLevel} 關挑戰</p></>
+                                <>
+                                    <div className="text-8xl mb-4 animate-bounce">🏆</div>
+                                    <h2 className="text-5xl font-black text-yellow-400 mb-4 drop-shadow-lg">大獲全勝！</h2>
+                                    <p className="text-gray-300 mb-10 text-xl font-bold">恭喜通過第 <span className="text-white text-3xl">{dailyLevel}</span> 關</p>
+                                </>
                             ) : (
-                                <><Skull size={100} className="text-gray-600 mb-6" /><h2 className="text-4xl font-black text-gray-400 mb-4">再接再厲...</h2><p className="text-gray-500 mb-10 text-xl">英雄需要休息，下次再戰！</p></>
+                                <>
+                                    <div className="text-8xl mb-4 text-gray-500">💀</div>
+                                    <h2 className="text-4xl font-black text-gray-400 mb-4">再接再厲...</h2>
+                                    <p className="text-gray-500 mb-10 text-xl">英雄累了，休息一下再來挑戰！</p>
+                                </>
                             )}
                             <button onClick={() => setScreen('menu')} className="bg-white text-indigo-900 px-16 py-5 rounded-2xl font-black text-2xl shadow-2xl hover:scale-105 transition-all">返回基地</button>
                         </div>
