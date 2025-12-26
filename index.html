@@ -3,20 +3,20 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>印家英雄榜：知識大冒險</title>
+    <title>印家英雄榜：怪獸大討伐</title>
     <!-- React & Tailwind -->
     <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
     
-    <!-- Firebase (使用 try-catch 包覆，確保不崩潰) -->
+    <!-- Firebase SDK -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
         import { getFirestore, doc, getDoc, setDoc, onSnapshot, updateDoc, increment } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
         import { getAuth, signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 
-        // --- 請確認您的 Firebase Config ---
         const firebaseConfig = {
             apiKey: "AIzaSyCagXSigdL09-OK4G5jF20Hj3iXnRVQs-M",
             authDomain: "family-hero-f89f7.firebaseapp.com",
@@ -32,195 +32,94 @@
             window.db = getFirestore(app);
             window.auth = getAuth(app);
             window.provider = new GoogleAuthProvider();
-            // 掛載全域變數供 React 使用
             window.doc = doc; window.getDoc = getDoc; window.setDoc = setDoc; 
             window.onSnapshot = onSnapshot; window.updateDoc = updateDoc; window.increment = increment;
             window.signInWithPopup = signInWithPopup; window.signOut = signOut; window.onAuthStateChanged = onAuthStateChanged;
-            console.log("🔥 Firebase 連線模組載入成功");
-        } catch (e) { 
-            console.warn("⚠️ Firebase 連線失敗 (可能未設定或網路問題)，將使用單機模式。", e); 
-        }
+        } catch (e) { console.error("Firebase Error", e); }
     </script>
 
     <style>
-        /* 動畫特效 */
-        @keyframes shake { 0%, 100% { transform: translate(0, 0); } 10%, 90% { transform: translate(-5px, 0); } 50% { transform: translate(5px, 0); } }
-        .animate-shake { animation: shake 0.4s ease-in-out; }
-        @keyframes pulse-fast { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.1); } }
-        .animate-heartbeat { animation: pulse-fast 0.8s infinite; }
-        @keyframes attack-rush { 0% { transform: translateX(0); } 50% { transform: translateX(50px) scale(1.2); } 100% { transform: translateX(0); } }
-        .animate-attack { animation: attack-rush 0.3s ease-out; }
-        @keyframes boss-float { 0%, 100% { transform: translateY(0) scale(1.5); } 50% { transform: translateY(-20px) scale(1.55); } }
-        .boss-mode { animation: boss-float 3s ease-in-out infinite; filter: drop-shadow(0 0 20px red); }
-        @keyframes fire-border { 0% { box-shadow: inset 0 0 20px red; } 50% { box-shadow: inset 0 0 50px orange; } 100% { box-shadow: inset 0 0 20px red; } }
-        .fever-mode { animation: fire-border 1s infinite; border: 2px solid #fbbf24; }
-        @keyframes pop { 0% { transform: scale(0); } 80% { transform: scale(1.2); } 100% { transform: scale(1); } }
-        .pop-in { animation: pop 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; }
+        /* --- 動畫特效區 --- */
+        body { background-color: #0f172a; color: white; margin: 0; overflow: hidden; font-family: system-ui, -apple-system, sans-serif; user-select: none; -webkit-tap-highlight-color: transparent; }
         
-        body { margin: 0; overflow: hidden; font-family: system-ui, -apple-system, sans-serif; user-select: none; -webkit-tap-highlight-color: transparent; background-color: #1e1b4b; color: white; }
-        .bg-forest { background: linear-gradient(to bottom, #14532d, #064e3b); }
-        .bg-desert { background: linear-gradient(to bottom, #7c2d12, #451a03); }
-        .bg-ice { background: linear-gradient(to bottom, #1e3a8a, #172554); }
-        .bg-volcano { background: linear-gradient(to bottom, #7f1d1d, #450a0a); }
+        @keyframes idle-float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
+        .anim-idle { animation: idle-float 3s ease-in-out infinite; }
         
-        /* 角色構造 */
+        /* 冰晶特效 */
+        @keyframes snow-fall { 0% { transform: translateY(-10px) rotate(0); opacity: 0; } 50% { opacity: 1; } 100% { transform: translateY(100px) rotate(360deg); opacity: 0; } }
+        .effect-snow { position: absolute; animation: snow-fall 1s linear forwards; pointer-events: none; }
+
+        /* 攻擊特效 */
+        @keyframes ice-blast { 0% { transform: scale(0); opacity: 1; filter: blur(0); } 100% { transform: scale(4); opacity: 0; filter: blur(10px); } }
+        .effect-ice { position: absolute; top: 40%; left: 70%; width: 60px; height: 60px; background: radial-gradient(circle, white, #7dd3fc); animation: ice-blast 0.5s ease-out forwards; z-index: 50; border-radius: 50%; box-shadow: 0 0 30px #0ea5e9; }
+        
+        @keyframes beetle-crush { 0% { transform: scale(0.5); opacity: 0; } 20% { opacity: 1; } 50% { transform: scale(1.5); } 100% { transform: scale(1.2); opacity: 0; } }
+        .effect-crush { position: absolute; top: 40%; left: 70%; font-size: 6rem; animation: beetle-crush 0.4s ease-out forwards; z-index: 50; filter: drop-shadow(0 0 10px #22c55e); }
+
+        @keyframes screen-shake { 0%, 100% { transform: translate(0,0); } 25% { transform: translate(-5px, 5px); } 50% { transform: translate(5px, -5px); } 75% { transform: translate(-5px, -5px); } }
+        .shake-active { animation: screen-shake 0.2s infinite; }
+
+        /* 背景流動 */
+        .bg-ice-castle { background: linear-gradient(to bottom, #1e3a8a, #0c4a6e, #082f49); }
+        .bg-beetle-forest { background: linear-gradient(to bottom, #064e3b, #14532d, #022c22); }
+        
+        /* 角色身體構造 */
         .char-container { position: relative; width: 100px; height: 140px; display: flex; flex-direction: column; align-items: center; }
-        .char-head { font-size: 3.5rem; z-index: 10; filter: drop-shadow(0 2px 2px rgba(0,0,0,0.3)); }
-        .char-body { width: 36px; height: 45px; border-radius: 8px; position: relative; z-index: 5; margin-top: -10px; }
-        .char-body.princess { background: linear-gradient(180deg, #ec4899, #be185d); }
-        .char-body.hero { background: linear-gradient(180deg, #3b82f6, #1d4ed8); }
-        .char-limb { width: 8px; height: 25px; background: #fda4af; position: absolute; border-radius: 4px; }
+        .char-head { font-size: 3.5rem; z-index: 10; filter: drop-shadow(0 4px 2px rgba(0,0,0,0.3)); }
+        .char-body { width: 38px; height: 48px; border-radius: 8px; position: relative; z-index: 5; margin-top: -10px; }
+        .char-body.princess { background: linear-gradient(180deg, #bae6fd, #0284c7); border-bottom-left-radius: 20px; border-bottom-right-radius: 20px; }
+        .char-body.hero { background: linear-gradient(180deg, #4ade80, #166534); border: 2px solid #bbf7d0; }
+        .char-limb { width: 8px; height: 26px; background: #fda4af; position: absolute; border-radius: 4px; }
         .arm-l { left: -6px; top: 5px; transform: rotate(20deg); }
         .arm-r { right: -6px; top: 5px; transform: rotate(-20deg); }
-        .leg-l { left: 6px; bottom: -20px; height: 30px; background: #374151; }
-        .leg-r { right: 6px; bottom: -20px; height: 30px; background: #374151; }
-        
-        .slot-hat { position: absolute; top: -20px; left: 50%; transform: translateX(-50%); font-size: 2rem; z-index: 20; filter: drop-shadow(0 2px 2px rgba(0,0,0,0.5)); }
-        .slot-weapon { position: absolute; top: 30px; right: -25px; font-size: 2rem; z-index: 20; transform: rotate(-15deg); filter: drop-shadow(0 0 5px gold); }
-        .slot-pet { position: absolute; bottom: 0; left: -40px; font-size: 1.8rem; animation: pulse-fast 3s infinite; }
+        .leg-l { left: 8px; bottom: -20px; height: 32px; background: #334155; }
+        .leg-r { right: 8px; bottom: -20px; height: 32px; background: #334155; }
+
+        input:focus { border-color: #facc15; box-shadow: 0 0 15px rgba(250, 204, 21, 0.4); }
     </style>
 </head>
 <body>
-    <div id="root" class="flex h-screen w-full items-center justify-center text-xl font-bold animate-pulse">
-        🚀 遊戲載入中... (如果卡住請重新整理)
+    <div id="root" class="flex h-screen w-full items-center justify-center text-xl font-bold">
+        ❄️ 冒險準備中...
     </div>
-
-    <!-- 錯誤處理腳本 -->
-    <script>
-        window.onerror = function(message, source, lineno, colno, error) {
-            document.getElementById('root').innerHTML = `
-                <div class="p-8 text-center bg-red-900 text-white">
-                    <h1 class="text-2xl font-bold mb-4">⚠️ 哎呀！發生錯誤</h1>
-                    <p class="mb-4">可能是存檔資料衝突或程式錯誤。</p>
-                    <p class="text-xs bg-black p-2 rounded mb-4 text-left font-mono">${message}</p>
-                    <button onclick="localStorage.clear(); location.reload();" class="bg-white text-red-900 px-4 py-2 rounded font-bold">
-                        重置所有存檔並修復 (Reset)
-                    </button>
-                </div>
-            `;
-        };
-    </script>
 
     <script type="text/babel">
         const { useState, useEffect, useRef } = React;
 
-        // --- 核心資料 ---
+        const CHARACTERS = { 
+            daughter: { id: 'daughter', name: '冰雪女王榕', avatar: '👸', theme: 'princess', color: 'text-cyan-300', bg: 'bg-ice-castle', attackType: 'ice', needPwd: true }, 
+            son: { id: 'son', name: '甲蟲王者希', avatar: '👦', theme: 'hero', color: 'text-green-400', bg: 'bg-beetle-forest', attackType: 'beetle', needPwd: true }, 
+            mom: { id: 'mom', name: '神力女超人', avatar: '👩', theme: 'hero', color: 'text-yellow-400', bg: 'bg-slate-800', attackType: 'magic', needPwd: true }, 
+            challenger: { id: 'challenger', name: '挑戰者', subName: '(免密碼)', avatar: '🦸', theme: 'hero', color: 'text-blue-400', bg: 'bg-slate-900', attackType: 'slash', needPwd: false } 
+        };
+
         const SENTENCE_TEMPLATES = {
-            noun: [{ text: "This is a ___.", hint: "這是一個..." }, { text: "I can see a ___.", hint: "我看見一個..." }, { text: "Do you like the ___?", hint: "你喜歡這個...嗎？" }, { text: "The ___ is over there.", hint: "那個...在那邊" }, { text: "I have a ___.", hint: "我有一個..." }],
-            verb: [{ text: "I like to ___.", hint: "我喜歡..." }, { text: "Can you ___?", hint: "你會...嗎？" }, { text: "Let's ___ together.", hint: "我們一起...吧" }, { text: "Please ___ now.", hint: "請現在..." }],
-            adj: [{ text: "It looks very ___.", hint: "它看起來很..." }, { text: "The cat is ___.", hint: "這隻貓很..." }, { text: "I feel ___ today.", hint: "我今天覺得很..." }],
-            number: [{ text: "I have ___ apples.", hint: "我有...顆蘋果" }, { text: "Count to ___.", hint: "數到..." }]
+            noun: [{ text: "This is a ___.", hint: "這是一個..." }, { text: "I see a ___.", hint: "我看見一個..." }],
+            verb: [{ text: "I can ___.", hint: "我會..." }, { text: "Let's ___.", hint: "我們一起...吧" }],
+            adj: [{ text: "It is ___.", hint: "它很..." }],
+            number: [{ text: "Count to ___.", hint: "數到..." }]
         };
 
         const BASE_VOCAB = [
-            { word: "cat", type: "noun", mean: "貓" }, { word: "dog", type: "noun", mean: "狗" }, { word: "pig", type: "noun", mean: "豬" }, { word: "bird", type: "noun", mean: "鳥" }, { word: "lion", type: "noun", mean: "獅子" },
-            { word: "apple", type: "noun", mean: "蘋果" }, { word: "banana", type: "noun", mean: "香蕉" }, { word: "milk", type: "noun", mean: "牛奶", u: true }, { word: "water", type: "noun", mean: "水", u: true },
-            { word: "book", type: "noun", mean: "書" }, { word: "pen", type: "noun", mean: "筆" }, { word: "bus", type: "noun", mean: "公車" }, { word: "car", type: "noun", mean: "車子" },
-            { word: "run", type: "verb", mean: "跑" }, { word: "jump", type: "verb", mean: "跳" }, { word: "swim", type: "verb", mean: "游泳" }, { word: "eat", type: "verb", mean: "吃" },
-            { word: "big", type: "adj", mean: "大的" }, { word: "small", type: "adj", mean: "小的" }, { word: "happy", type: "adj", mean: "快樂的" }, { word: "sad", type: "adj", mean: "難過的" }, { word: "red", type: "adj", mean: "紅色的" }, { word: "blue", type: "adj", mean: "藍色的" }
+            { word: "cat", type: "noun", mean: "貓" }, { word: "dog", type: "noun", mean: "狗" }, { word: "lion", type: "noun", mean: "獅子" },
+            { word: "apple", type: "noun", mean: "蘋果" }, { word: "milk", type: "noun", mean: "牛奶", u:true },
+            { word: "book", type: "noun", mean: "書" }, { word: "car", type: "noun", mean: "車" },
+            { word: "run", type: "verb", mean: "跑" }, { word: "jump", type: "verb", mean: "跳" },
+            { word: "big", type: "adj", mean: "大的" }, { word: "small", type: "adj", mean: "小的" },
+            { word: "happy", type: "adj", mean: "快樂" }, { word: "red", type: "adj", mean: "紅" }
         ];
 
-        const NUMBERS_1_10 = [{ word: "one", type: "number", mean: "一", isFocus: true }, { word: "two", type: "number", mean: "二", isFocus: true }, { word: "three", type: "number", mean: "三", isFocus: true }, { word: "four", type: "number", mean: "四", isFocus: true }, { word: "five", type: "number", mean: "五", isFocus: true }, { word: "six", type: "number", mean: "六", isFocus: true }, { word: "seven", type: "number", mean: "七", isFocus: true }, { word: "eight", type: "number", mean: "八", isFocus: true }, { word: "nine", type: "number", mean: "九", isFocus: true }, { word: "ten", type: "number", mean: "十", isFocus: true }];
-        const BROTHER_EXTRAS = [{ word: "tired", type: "adj", mean: "累的", isFocus: true }, { word: "angry", type: "adj", mean: "生氣的", isFocus: true }, { word: "strong", type: "adj", mean: "強壯的", isFocus: true }, { word: "thin", type: "adj", mean: "瘦的", isFocus: true }, { word: "short", type: "adj", mean: "短/矮的", isFocus: true }, { word: "tall", type: "adj", mean: "高的", isFocus: true }];
-
-        const ITEMS_DB = {
-            princess: {
-                math: [{ id: 'pm1', icon: '🪄', type: 'weapon', effect: 'magic' }, { id: 'pm2', icon: '👑', type: 'head' }, { id: 'pm3', icon: '🧚‍♀️', type: 'pet' }, { id: 'pm4', icon: '🛡️', type: 'shield' }, { id: 'pm5', icon: '🧪', type: 'skill_heal', name:'聖水' }],
-                english: [{ id: 'pe1', icon: '🌟', type: 'weapon', effect: 'magic' }, { id: 'pe2', icon: '👒', type: 'head' }, { id: 'pe3', icon: '🦄', type: 'pet' }, { id: 'pe4', icon: '📖', type: 'shield' }, { id: 'pe5', icon: '⏳', type: 'skill_time', name:'懷錶' }]
-            },
-            hero: {
-                math: [{ id: 'hm1', icon: '⚔️', type: 'weapon', effect: 'slash' }, { id: 'hm2', icon: '⛑️', type: 'head' }, { id: 'hm3', icon: '🐲', type: 'pet' }, { id: 'hm4', icon: '🛡️', type: 'shield' }, { id: 'hm5', icon: '🍖', type: 'skill_heal', name:'烤肉' }],
-                english: [{ id: 'he1', icon: '🗡️', type: 'weapon', effect: 'slash' }, { id: 'he2', icon: '🧢', type: 'head' }, { id: 'he3', icon: '🐺', type: 'pet' }, { id: 'he4', icon: '🛡️', type: 'shield' }, { id: 'he5', icon: '⏰', type: 'skill_time', name:'鬧鐘' }]
-            }
-        };
-
-        const SCENARIOS = [
-            { text: "遭遇史萊姆！", emoji: "🟢" }, { text: "發現寶箱怪！", emoji: "📦" }, { text: "野狼擋路！", emoji: "🐺" }, { text: "蝙蝠來襲！", emoji: "🦇" }, { text: "守衛石像！", emoji: "🗿" }
-        ];
-
-        const getWeekId = () => {
-            const d = new Date();
-            const year = d.getFullYear();
-            const firstJan = new Date(year, 0, 1);
-            const week = Math.ceil((((d - firstJan) / 86400000) + firstJan.getDay() + 1) / 7);
-            return `${year}-W${week}`;
-        };
-
-        // 安全的預設資料產生器
-        const getInitialStats = () => ({ lastPlayedDate: '', lastWeekId: '', dailyMathLevel: 0, dailyEnglishLevel: 0, dailyScore: 0, allTimeBest: { score: 0, date: '-' }, earnedItems: [], stickerBook: [] });
-        const INITIAL_DB_STRUCTURE = { daughter: getInitialStats(), son: getInitialStats(), mom: getInitialStats(), challenger: getInitialStats() };
-        
-        const INITIAL_MATH_SETTINGS = { daughter: { slots: [{ range: 10, weight: 5 }, { range: 20, weight: 3 }, { range: 50, weight: 2 }] }, son: { weights: { '2-digit-add-sub': 5, '3-digit-add-sub': 2, '1-digit-mult': 3, '2-digit-mult': 1, 'div-exact': 2, 'div-remain': 1 } }, challenger: { weights: { '2-digit-add-sub': 5, '3-digit-add-sub': 2, '1-digit-mult': 3, '2-digit-mult': 1, 'div-exact': 2, 'div-remain': 1 } } };
-        const CHARACTERS = { 
-            daughter: { id: 'daughter', name: '超人力霸榕', avatar: '🦸‍♀️', needPwd: true, theme: 'princess', attackType: 'beam' }, 
-            son: { id: 'son', name: '甲蟲王者希', avatar: '🪲', needPwd: true, theme: 'hero', attackType: 'charge' }, 
-            mom: { id: 'mom', name: '神力女超人', avatar: '👸', needPwd: true, theme: 'princess', attackType: 'magic' }, 
-            challenger: { id: 'challenger', name: '挑戰者', subName: '(免密碼)', avatar: '🦸', needPwd: false, theme: 'hero', attackType: 'slash' } 
-        };
+        const MONSTERS = ["👾","👽","🦖","🦕","🐙","🦑","🦂","🕷️","🦟","🪳","👹","👺","🐲","🐉"];
+        const INITIAL_STATS = { dailyMathLevel: 0, dailyEnglishLevel: 0, dailyScore: 0, earnedItems: [], monsterBook: [] };
+        const INITIAL_DB = { daughter: {...INITIAL_STATS}, son: {...INITIAL_STATS}, mom: {...INITIAL_STATS}, challenger: {...INITIAL_STATS} };
         const PARENT_PASSWORD = "28825252";
         const FAMILY_PASSWORD = "168";
 
-        // --- 音樂音效 ---
         let audioCtx = null;
-        let musicInterval = null;
         const initAudio = () => { if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)(); if (audioCtx.state === 'suspended') audioCtx.resume(); };
         const playTone = (f, t, v=0.2, d=0.1) => { if(!audioCtx)return; const o=audioCtx.createOscillator(); const g=audioCtx.createGain(); o.type=t; o.frequency.value=f; g.gain.value=v; g.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime+d); o.connect(g); g.connect(audioCtx.destination); o.start(); o.stop(audioCtx.currentTime+d); };
-        const stopMusic = () => { if (musicInterval) clearInterval(musicInterval); };
-        const playMusic = (style) => {
-            stopMusic(); if (!audioCtx) return;
-            let scale = [261, 329, 392, 523]; let tempo = 400; let wave = 'sine';
-            if (style === 'battle') { scale = [130, 155, 196, 261]; tempo = 200; wave = 'sawtooth'; }
-            else if (style === 'tense') { scale = [110, 116, 130]; tempo = 150; wave = 'square'; }
-            musicInterval = setInterval(() => { if (Math.random() > 0.4) playTone(scale[Math.floor(Math.random() * scale.length)], tempo / 1000, wave); }, tempo);
-        };
-        const playSFX = (t) => {
-            if (!audioCtx) return;
-            if (t==='attack') { playTone(200,'square',0.3); setTimeout(()=>playTone(150,'square',0.3),100); }
-            else if (t==='win') { [440,554,659].forEach((f,i)=>setTimeout(()=>playTone(f,'sine',0.2,0.3),i*100)); }
-            else if (t==='hurt') { playTone(100,'sawtooth',0.4); setTimeout(()=>playTone(80,'sawtooth',0.4),100); }
-            else if (t==='beam') { playTone(800,'sawtooth',0.3,0.5); setTimeout(()=>playTone(600,'sawtooth',0.3,0.5),100); }
-            else if (t==='charge') { playTone(100,'square',0.5,0.4); setTimeout(()=>playTone(200,'square',0.5,0.4),200); }
-        };
-        const speakWord = (text) => { if ('speechSynthesis' in window) { window.speechSynthesis.cancel(); const u = new SpeechSynthesisUtterance(text); u.lang = 'en-US'; u.rate = 0.9; window.speechSynthesis.speak(u); } };
-
-        const getInitialVocab = (role) => {
-            let list = [...BASE_VOCAB];
-            if (role === 'daughter' || role === 'son') list = [...list, ...NUMBERS_1_10];
-            if (role === 'son') {
-                list = [...list, ...BROTHER_EXTRAS];
-                list = list.map(v => (['happy','sad'].includes(v.word) ? { ...v, isFocus: true } : v));
-            }
-            const unique = []; const map = new Map();
-            for (const item of list) { if(!map.has(item.word)){ map.set(item.word, true); unique.push(item); } else if (item.isFocus) { const idx = unique.findIndex(u => u.word === item.word); unique[idx] = item; } }
-            return unique;
-        };
-
-        const FullBodyChar = ({ charId, items, isAnimating }) => {
-            const char = CHARACTERS[charId];
-            const theme = char.theme;
-            const allItems = [...ITEMS_DB.princess.math, ...ITEMS_DB.princess.english, ...ITEMS_DB.hero.math, ...ITEMS_DB.hero.english];
-            const myGear = allItems.filter(i => items && items.includes(i.id));
-            const hat = myGear.find(i => i.type === 'head');
-            const weapon = myGear.find(i => i.type === 'weapon');
-            const shield = myGear.find(i => i.type === 'shield');
-            const pet = myGear.find(i => i.type === 'pet');
-
-            return (
-                <div className={`char-container transition-transform duration-200 ${isAnimating === 'attack' ? 'translate-x-10' : ''} ${isAnimating === 'hurt' ? 'animate-shake' : ''}`}>
-                    {hat && <div className="slot-hat">{hat.icon}</div>}
-                    <div className="char-head">{char.avatar}</div>
-                    <div className={`char-body ${theme}`}>
-                        <div className="char-limb arm-l"></div>
-                        <div className="char-limb arm-r"></div>
-                        <div className="char-limb leg-l"></div>
-                        <div className="char-limb leg-r"></div>
-                    </div>
-                    {weapon && <div className="slot-weapon">{weapon.icon}</div>}
-                    {shield && <div className="slot-shield">{shield.icon}</div>}
-                    {pet && <div className="slot-pet">{pet.icon}</div>}
-                </div>
-            );
-        };
+        const playSFX = (t) => { if(!audioCtx)return; if(t==='ice'){playTone(1000,'sine',0.2,0.5);playTone(1200,'sine',0.1,0.4);} else if(t==='hit'){playTone(80,'sawtooth',0.4,0.2);} else if(t==='win'){[440,554,659].forEach((f,i)=>setTimeout(()=>playTone(f,'sine',0.2,0.3),i*100));} };
+        const speakWord = (text) => { if ('speechSynthesis' in window) { window.speechSynthesis.cancel(); const u = new SpeechSynthesisUtterance(text); u.lang = 'en-US'; u.rate = 0.8; window.speechSynthesis.speak(u); } };
 
         const LucideIcon = ({ name }) => {
             const [Icon, setIcon] = useState(null);
@@ -228,446 +127,238 @@
             return Icon ? <Icon size={18} /> : <span>⚙️</span>;
         };
 
-        // --- 排行榜 ---
-        const LeaderboardModal = ({ stats, onClose }) => {
-            const [tab, setTab] = useState('daily');
-            const getSorted = (type) => {
-                const list = Object.entries(stats).map(([key, data]) => ({
-                    key,
-                    name: CHARACTERS[key].name,
-                    avatar: CHARACTERS[key].avatar,
-                    score: type === 'daily' ? data.dailyScore : 
-                           type === 'all' ? data.allTimeBest.score : 
-                           (data.weeklyHistory || []).reduce((acc, cur) => acc + cur.score, 0),
-                    extra: type === 'daily' ? `Lv.${Math.max(data.dailyMathLevel, data.dailyEnglishLevel)}` : ''
-                }));
-                return list.sort((a, b) => b.score - a.score);
-            };
-            const data = getSorted(tab);
+        const FullBodyChar = ({ charId, items, isAnimating }) => {
+            const char = CHARACTERS[charId];
             return (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-4 animate-pop">
-                    <div className="bg-slate-800 w-full max-w-md rounded-2xl border-2 border-yellow-400 flex flex-col overflow-hidden text-white shadow-2xl">
-                        <div className="p-4 border-b border-gray-700 flex justify-between items-center bg-indigo-900">
-                            <h2 className="text-xl font-bold text-yellow-300 flex items-center gap-2">🏆 英雄榜</h2>
-                            <button onClick={onClose} className="text-gray-400 hover:text-white"><LucideIcon name="x" /></button>
-                        </div>
-                        <div className="flex bg-slate-700">
-                            <button onClick={()=>setTab('daily')} className={`flex-1 py-3 font-bold ${tab==='daily'?'bg-blue-600 text-white':'text-gray-400'}`}>今日戰績</button>
-                            <button onClick={()=>setTab('week')} className={`flex-1 py-3 font-bold ${tab==='week'?'bg-purple-600 text-white':'text-gray-400'}`}>本週霸主</button>
-                            <button onClick={()=>setTab('all')} className={`flex-1 py-3 font-bold ${tab==='all'?'bg-yellow-600 text-white':'text-gray-400'}`}>歷史傳奇</button>
-                        </div>
-                        <div className="p-4 space-y-3 overflow-y-auto max-h-[60vh]">
-                            {data.map((p, i) => (
-                                <div key={p.key} className="flex items-center bg-white/10 p-3 rounded-xl border border-white/5">
-                                    <div className={`w-8 h-8 flex items-center justify-center rounded-full font-black mr-3 ${i===0?'bg-yellow-400 text-black':(i===1?'bg-gray-400 text-black':(i===2?'bg-orange-700 text-white':'bg-slate-700 text-gray-400'))}`}>{i+1}</div>
-                                    <div className="text-2xl mr-3">{p.avatar}</div>
-                                    <div className="flex-1"><div className="font-bold text-sm">{p.name}</div>{p.extra && <div className="text-xs text-gray-400">{p.extra}</div>}</div>
-                                    <div className="text-xl font-mono font-bold text-yellow-300">{p.score}</div>
-                                </div>
-                            ))}
-                        </div>
+                <div className={`char-container transition-transform duration-200 ${isAnimating === 'attack' ? 'translate-x-10' : ''} ${isAnimating === 'hurt' ? 'animate-shake' : ''}`}>
+                    <div className="char-head">{char.avatar}</div>
+                    <div className={`char-body ${char.theme}`}>
+                        <div className="char-limb arm-l"></div><div className="char-limb arm-r"></div><div className="char-limb leg-l"></div><div className="char-limb leg-r"></div>
                     </div>
                 </div>
             );
         };
 
-        const GameManual = ({ onClose }) => (
-            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-4 animate-pop">
-                <div className="bg-slate-800 w-full max-w-lg max-h-[85vh] rounded-2xl border-2 border-yellow-400 flex flex-col overflow-hidden text-white shadow-2xl">
-                    <div className="p-4 border-b border-gray-700 flex justify-between items-center bg-indigo-900">
-                        <h2 className="text-xl font-bold text-yellow-300 flex items-center gap-2"><LucideIcon name="book-open"/> 冒險指南</h2>
-                        <button onClick={onClose} className="text-gray-400 hover:text-white"><LucideIcon name="x" /></button>
-                    </div>
-                    <div className="p-6 overflow-y-auto space-y-6 text-sm leading-relaxed">
-                        <section><h3 className="text-lg font-bold text-blue-300 mb-2">⚔️ 雙軌挑戰規則</h3><p className="text-gray-300">為了成為全能英雄，數學和英文必須一起進步！如果您在某一科練到了 <strong>Lv.20, Lv.40...</strong> 等整數關卡，必須把另一科也練上來，才能解鎖下一階段喔！</p></section>
-                        <section><h3 className="text-lg font-bold text-green-400 mb-2">🎒 裝備與重置</h3><ul className="list-disc pl-5 space-y-1 text-gray-300"><li><strong>掉落機制：</strong>每通過 10 關（例如 Lv.10, 20...），打敗 BOSS 後會掉落寶箱！</li><li><strong>每週重置：</strong>為了保持挑戰性，每週一裝備會歸零。</li><li><strong>永久圖鑑：</strong>別擔心！只要獲得過的寶物，都會永久記錄在「圖鑑」裡。</li></ul></section>
-                        <section><h3 className="text-lg font-bold text-yellow-400 mb-2">🔥 得分秘訣</h3><p className="text-gray-300"><strong>基礎分 (100) + 速度獎勵 + 連擊加成</strong>。答得越快分數越高，連續答對還能進入 Fever 模式分數加倍！</p></section>
-                    </div>
-                </div>
-            </div>
-        );
-
         function App() {
             const [screen, setScreen] = useState('menu');
             const [playerKey, setPlayerKey] = useState('daughter');
-            const [momMode, setMomMode] = useState('daughter');
             const [gameMode, setGameMode] = useState('math');
-            const [stats, setStats] = useState(INITIAL_DB_STRUCTURE);
-            const [vocabMap, setVocabMap] = useState({ daughter: getInitialVocab('daughter'), son: getInitialVocab('son'), mom: getInitialVocab('mom'), challenger: getInitialVocab('challenger') });
-            const [mathSettings, setMathSettings] = useState(INITIAL_MATH_SETTINGS);
-            const [rewards, setRewards] = useState({ levelRewards: {}, dailyScore: Array(5).fill({score:0, reward:""}) });
-            const [raidData, setRaidData] = useState({ hp: 10000, maxHp: 10000 });
-            const [audioStarted, setAudioStarted] = useState(false);
+            const [stats, setStats] = useState(INITIAL_DB);
+            const [userObj, setUserObj] = useState(null);
             
             const [dailyLevel, setDailyLevel] = useState(1);
             const [timer, setTimer] = useState(0);
-            const [score, setScore] = useState(0);
             const [playerHp, setPlayerHp] = useState(100);
             const [question, setQuestion] = useState(null);
             const [userAnswer, setUserAnswer] = useState('');
             const [feedback, setFeedback] = useState(null);
             const [inputMode, setInputMode] = useState('select');
-            const [scenario, setScenario] = useState(SCENARIOS[0]);
-            
+            const [showModeChoice, setShowModeChoice] = useState(false);
             const [animState, setAnimState] = useState('idle');
-            const [effectText, setEffectText] = useState(null);
-            const [newItem, setNewItem] = useState(null);
-            const [userObj, setUserObj] = useState(null);
-            const [skillUsed, setSkillUsed] = useState({ heal: false, time: false });
-            const [combo, setCombo] = useState(0);
-            const [fever, setFever] = useState(false);
-            const [showHelp, setShowHelp] = useState(false);
-            const [showLeaderboard, setShowLeaderboard] = useState(false);
-
-            const gameRuleKeyRef = useRef('daughter');
+            const [effectType, setEffectType] = useState(null);
             const timerRef = useRef(null);
 
-            // --- 強化的資料載入與修復 ---
             useEffect(() => {
-                try {
-                    const saved = JSON.parse(localStorage.getItem('fh_v11_final'));
-                    const currentWeek = getWeekId();
-                    const today = new Date().toISOString().split('T')[0];
-                    
-                    let loadedStats = { ...INITIAL_DB_STRUCTURE };
-                    
-                    if (saved) {
-                        // 深度合併，確保新角色 key 存在
-                        Object.keys(INITIAL_DB_STRUCTURE).forEach(role => {
-                            if (saved.stats && saved.stats[role]) {
-                                loadedStats[role] = { ...INITIAL_DB_STRUCTURE[role], ...saved.stats[role] };
-                            }
-                        });
-                        if (saved.vocabMap) setVocabMap(saved.vocabMap);
-                        if (saved.mathSettings) setMathSettings(saved.mathSettings);
-                        if (saved.rewards) setRewards(saved.rewards);
-                    }
-
-                    // 重置邏輯
-                    Object.keys(loadedStats).forEach(k => {
-                        if (loadedStats[k].lastWeekId !== currentWeek) { loadedStats[k].earnedItems = []; loadedStats[k].lastWeekId = currentWeek; }
-                        if (loadedStats[k].lastPlayedDate !== today) { loadedStats[k].dailyScore = 0; loadedStats[k].lastPlayedDate = today; }
-                    });
-                    
-                    setStats(loadedStats);
-
-                    // Firebase Listener
-                    if (window.db) {
-                        const unsubRaid = window.onSnapshot(window.doc(window.db, "system", "raidBoss"), (doc) => {
-                            if (doc.exists()) setRaidData(doc.data());
-                            else window.setDoc(window.doc(window.db, "system", "raidBoss"), { hp: 10000, maxHp: 10000 });
-                        });
-                        const unsubAuth = window.onAuthStateChanged(window.auth, (u) => {
-                            setUserObj(u);
-                            if(u && saved) saveToCloud(u, { stats: loadedStats, vocabMap, mathSettings, rewards });
-                        });
-                        return () => { unsubRaid(); unsubAuth(); };
-                    }
-                } catch (e) {
-                    console.error("Data Load Error, resetting...", e);
-                    // 如果載入失敗，使用預設值防止白畫面
-                    setStats(INITIAL_DB_STRUCTURE);
-                }
+                const saved = JSON.parse(localStorage.getItem('fh_v12_pro'));
+                if (saved) setStats(saved);
+                if (window.auth) window.onAuthStateChanged(window.auth, async (u) => {
+                    setUserObj(u);
+                    if(u) { const snap = await window.getDoc(window.doc(window.db, "users", u.uid)); if (snap.exists()) setStats(snap.data().stats); }
+                });
             }, []);
 
-            useEffect(() => { 
-                localStorage.setItem('fh_v11_final', JSON.stringify({ stats, vocabMap, mathSettings, rewards })); 
-            }, [stats, vocabMap, mathSettings, rewards]);
-
-            const saveToCloud = async (u, data) => {
-                if (!window.db) return;
-                try { await window.setDoc(window.doc(window.db, "users", u.uid), data || { stats, vocabMap, mathSettings, rewards }); } catch (e) {}
+            const saveAll = (newStats) => {
+                const updated = newStats || stats;
+                setStats(updated);
+                localStorage.setItem('fh_v12_pro', JSON.stringify(updated));
+                if (userObj && window.db) window.setDoc(window.doc(window.db, "users", userObj.uid), { stats: updated });
             };
 
-            const handleRaidDamage = async (dmg) => {
-                if (window.db) {
-                    await window.updateDoc(window.doc(window.db, "system", "raidBoss"), { hp: window.increment(-dmg) });
-                }
-            };
-
-            const pickWeighted = (opts) => { let total = opts.reduce((a,c)=>a+c.weight,0); let r = Math.random()*total; for(let o of opts){ if(r<o.weight)return o.item; r-=o.weight; } return opts[0].item; };
-            
-            const generateMathQuestion = (role) => {
-                const sRole = role === 'challenger' ? 'son' : role;
-                if (sRole === 'daughter') {
-                    const range = pickWeighted(mathSettings.daughter.slots.map(s => ({ item: s.range, weight: s.weight })));
-                    const n1 = Math.floor(Math.random()*range)+1; const n2 = Math.floor(Math.random()*range)+1;
+            const generateQuestion = (mode) => {
+                if (mode === 'math') {
+                    const n1 = Math.floor(Math.random()*20)+1; const n2 = Math.floor(Math.random()*20)+1;
                     return Math.random()>0.5 ? {text:`${n1}+${n2}=?`, answer:(n1+n2).toString(), time:30} : {text:`${Math.max(n1,n2)}-${Math.min(n1,n2)}=?`, answer:(Math.max(n1,n2)-Math.min(n1,n2)).toString(), time:30};
                 } else {
-                    const settings = mathSettings[sRole] || mathSettings.son;
-                    const mode = pickWeighted(Object.keys(settings.weights).map(k=>({item:k, weight:settings.weights[k]})));
-                    if(mode.includes('mult')) { const n1=Math.floor(Math.random()*9)+1; const n2=Math.floor(Math.random()*9)+1; return {text:`${n1}x${n2}=?`, answer:(n1*n2).toString(), time:60}; }
-                    else if(mode.includes('div')) { const n2=Math.floor(Math.random()*8)+2; const ans=Math.floor(Math.random()*9)+1; const r=mode==='div-remain'?Math.floor(Math.random()*(n2-1))+1:0; return {text:`${n2*ans+r}÷${n2}=?`, answer:mode==='div-remain'?`${ans}r${r}`:ans.toString(), time:90, isRemain:mode==='div-remain'}; }
-                    else { const n1=Math.floor(Math.random()*50)+10; const n2=Math.floor(Math.random()*50)+10; return {text:`${n1}+${n2}=?`, answer:(n1+n2).toString(), time:60}; }
+                    const w = BASE_VOCAB[Math.floor(Math.random()*BASE_VOCAB.length)];
+                    const tmpl = SENTENCE_TEMPLATES[w.type][0];
+                    const full = tmpl.text.replace('___', w.word);
+                    const opts = BASE_VOCAB.filter(v=>v.word!==w.word).sort(()=>0.5-Math.random()).slice(0,3).map(v=>v.word);
+                    // 修正提示：只顯示句型翻譯，不顯示單字翻譯，避免直接洩題
+                    return { text:tmpl.text.replace('___','_____'), fullSentence:full, answer:w.word, options:[w.word,...opts].sort(()=>0.5-Math.random()), time:30, wordObj:w, hint:tmpl.hint };
                 }
             };
 
-            const generateEnglishQuestion = (role) => {
-                const pool = vocabMap[role] || BASE_VOCAB;
-                const weightedPool = []; pool.forEach(w => { weightedPool.push(w); if (w.isFocus) { weightedPool.push(w); weightedPool.push(w); } });
-                const w = weightedPool[Math.floor(Math.random()*weightedPool.length)];
-                const tmpl = SENTENCE_TEMPLATES[w.type] ? SENTENCE_TEMPLATES[w.type][0] : SENTENCE_TEMPLATES.noun[0];
-                let txt = tmpl.text.replace('___', '_____');
-                if (txt.includes("a _____")) { if (w.u) txt=txt.replace("a _____","some _____"); else if(['a','e','i','o','u'].includes(w.word[0])) txt=txt.replace("a _____","an _____"); }
-                const full = tmpl.text.replace('___', w.word);
-                const opts = pool.filter(v=>v.word!==w.word).sort(()=>0.5-Math.random()).slice(0,3).map(v=>v.word);
-                return { text:txt, fullSentence:full, answer:w.word, options:[w.word,...opts].sort(()=>0.5-Math.random()), time:30, wordObj:w, hint:w.mean };
+            const handleStartClick = (mode) => {
+                if (mode === 'daily_english') setShowModeChoice(true);
+                else startGame('math', 'select');
             };
 
-            const handleStart = (mode) => {
-                if (CHARACTERS[playerKey].needPwd) {
-                    if (prompt("請輸入家人密碼 (168)：") !== FAMILY_PASSWORD) { alert("密碼錯誤"); return; }
-                }
+            const startGame = (mode, iMode) => {
+                if (CHARACTERS[playerKey].needPwd && prompt("家人密碼 (168)") !== FAMILY_PASSWORD) return alert("密碼錯誤");
                 initAudio();
-                const rule = (playerKey==='mom'||playerKey==='challenger') ? momMode : playerKey;
-                gameRuleKeyRef.current = rule;
-                setGameMode(mode); setPlayerHp(100); setHp(100); setScore(stats[playerKey].dailyScore); setCombo(0); setFever(false); setSkillUsed({heal:false, time:false});
-                const myLv = mode.includes('math') ? stats[playerKey].dailyMathLevel : stats[playerKey].dailyEnglishLevel;
-                const otherLv = mode.includes('math') ? stats[playerKey].dailyEnglishLevel : stats[playerKey].dailyMathLevel;
-                if (myLv > 0 && myLv % 20 === 0 && otherLv < myLv) { alert(`🚧 數學與英文要平衡發展喔！請先把另一科追到 Lv.${myLv}！`); return; }
-                const startLv = Math.floor(myLv / 10) * 10 + 1;
-                setDailyLevel(startLv); nextTurn(mode); setScreen('game');
+                const curLv = mode.includes('math') ? stats[playerKey].dailyMathLevel : stats[playerKey].dailyEnglishLevel;
+                // Lv.60 強制拼字模式檢查
+                const finalInputMode = (curLv >= 60 && mode.includes('english')) ? 'type' : iMode;
+                
+                setGameMode(mode); setInputMode(finalInputMode); setPlayerHp(100); 
+                setDailyLevel(curLv + 1);
+                nextTurn(mode); setScreen('game'); setShowModeChoice(false);
             };
 
             const nextTurn = (mode) => {
-                setAnimState('idle'); setUserAnswer(''); setFeedback(null);
-                const lv = dailyLevel;
-                const isBoss = lv > 0 && lv % 10 === 0;
-                let bgClass = 'bg-forest';
-                if(lv > 30) bgClass = 'bg-volcano'; else if(lv > 20) bgClass = 'bg-ice'; else if(lv > 10) bgClass = 'bg-desert';
-                document.body.className = bgClass;
-                const isListening = lv % 10 === 5 && mode.includes('english');
-                const q = mode.includes('math') ? generateMathQuestion(gameRuleKeyRef.current) : generateEnglishQuestion(gameRuleKeyRef.current);
-                setQuestion({ ...q, isListening, isBoss });
-                setTimer(q.time); setScenario(isBoss ? {text:"BOSS降臨!", emoji:"👹"} : SCENARIOS[Math.floor(Math.random()*SCENARIOS.length)]);
+                setAnimState('idle'); setEffectType(null); setUserAnswer(''); setFeedback(null);
+                const q = generateQuestion(mode.includes('math')?'math':'english');
+                setQuestion(q); setTimer(q.time);
                 if (mode.includes('english')) setTimeout(()=>speakWord(q.fullSentence), 500);
                 if (timerRef.current) clearInterval(timerRef.current);
                 timerRef.current = setInterval(()=>setTimer(t=>t>0?t-1:0), 1000);
             };
 
-            const checkItemDrop = () => {
-                if (dailyLevel > 0 && dailyLevel % 10 === 0) {
-                    const theme = CHARACTERS[playerKey].theme;
-                    const type = gameMode.includes('math') ? 'math' : 'english';
-                    const pool = ITEMS_DB[theme][type];
-                    const earned = stats[playerKey].earnedItems || [];
-                    const avail = pool.filter(i => !earned.includes(i.id));
-                    if (avail.length > 0) {
-                        const drop = avail[Math.floor(Math.random()*avail.length)];
-                        const newStats = {...stats}; 
-                        if (!newStats[playerKey].earnedItems) newStats[playerKey].earnedItems = [];
-                        newStats[playerKey].earnedItems.push(drop.id);
-                        if (!newStats[playerKey].stickerBook) newStats[playerKey].stickerBook = [];
-                        if (!newStats[playerKey].stickerBook.includes(drop.id)) newStats[playerKey].stickerBook.push(drop.id);
-                        setStats(newStats); if (userObj) saveToCloud(userObj, { stats: newStats, vocabMap, mathSettings, rewards });
-                        setNewItem(drop); playSFX('item'); setTimeout(() => setNewItem(null), 3000);
-                    }
-                }
-            };
-
             const handleAnswer = (val) => {
                 clearInterval(timerRef.current);
-                const isCorrect = val.toString().toLowerCase().trim() === question.answer.toString().toLowerCase();
+                const isCorrect = val.toString().toLowerCase().trim() === question.answer.toLowerCase();
                 
                 if (isCorrect) {
-                    const newCombo = combo + 1; setCombo(newCombo); setFever(newCombo >= 3);
-                    const dmg = fever ? 200 : 100; handleRaidDamage(dmg);
-                    setAnimState('attack'); playSFX(CHARACTERS[playerKey].attackType); 
+                    setAnimState('playerAttack'); setEffectType(CHARACTERS[playerKey].attackType);
+                    playSFX(CHARACTERS[playerKey].attackType === 'ice' ? 'ice' : 'hit');
+                    setFeedback('correct');
+                    const base = 100 + timer * 5; const bonus = inputMode === 'type' ? 1.5 : 1;
+                    if (question.wordObj) speakWord(question.fullSentence);
                     
-                    const basePoints = 100;
-                    const speedBonus = timer * 5;
-                    const feverMult = fever ? 1.5 : 1;
-                    const pts = Math.round((basePoints + speedBonus) * feverMult);
-                    
-                    setScore(s => s + pts);
-                    setFeedback('correct'); setEffectText(fever ? "🔥 FEVER!" : "NICE!");
-                    if(question.wordObj) speakWord(question.fullSentence);
+                    setTimeout(() => {
+                        const newStats = {...stats};
+                        if (gameMode.includes('math')) newStats[playerKey].dailyMathLevel = dailyLevel;
+                        else newStats[playerKey].dailyEnglishLevel = dailyLevel;
+                        newStats[playerKey].dailyScore += Math.round(base * bonus);
+                        saveAll(newStats);
+                        if (dailyLevel % 5 === 0) setScreen('result'); else { setDailyLevel(l=>l+1); nextTurn(gameMode); }
+                    }, 1200);
                 } else {
-                    setCombo(0); setFever(false); setAnimState('hurt'); playSFX('hurt'); setFeedback('wrong'); setEffectText("OUCH!");
-                    setPlayerHp(h=>h-(gameMode.startsWith('daily')?34:20));
-                }
-
-                setTimeout(() => {
-                    if (playerHp <= (isCorrect?0:34)) setScreen('result');
-                    else if (isCorrect) {
-                        if (dailyLevel % 10 === 0) { 
-                            checkItemDrop(); setAnimState('victory'); playSFX('win');
-                            const newStats = {...stats};
-                            if (gameMode.includes('math')) newStats[playerKey].dailyMathLevel = dailyLevel;
-                            else newStats[playerKey].dailyEnglishLevel = dailyLevel;
-                            newStats[playerKey].dailyScore = score;
-                            if (score > newStats[playerKey].allTimeBest.score) {
-                                newStats[playerKey].allTimeBest = { score, date: new Date().toISOString().split('T')[0] };
-                            }
-                            saveAll(newStats); 
-                            setTimeout(()=>setScreen('result'), 2000);
-                        } else { setDailyLevel(l=>l+1); nextTurn(gameMode); }
-                    } else nextTurn(gameMode);
-                }, 1500);
-            };
-
-            const useSkill = (type) => {
-                if (type === 'heal' && !skillUsed.heal) { setPlayerHp(h => Math.min(100, h + 30)); setSkillUsed({...skillUsed, heal:true}); playSFX('item'); } 
-                else if (type === 'time' && !skillUsed.time) { clearInterval(timerRef.current); setSkillUsed({...skillUsed, time:true}); playSFX('item'); setTimeout(() => { timerRef.current = setInterval(()=>setTimer(t=>t>0?t-1:0), 1000); }, 5000); }
-            };
-
-            const myItems = stats[playerKey].earnedItems || [];
-            const allItems = [...ITEMS_DB.princess.math, ...ITEMS_DB.princess.english, ...ITEMS_DB.hero.math, ...ITEMS_DB.hero.english];
-            const hasHeal = allItems.some(i => myItems.includes(i.id) && i.type === 'skill_heal');
-            const hasTime = allItems.some(i => myItems.includes(i.id) && i.type === 'skill_time');
-
-            const StickerBook = () => (
-                <div className="h-full bg-slate-900 p-6 overflow-y-auto">
-                    <div className="flex justify-between mb-4 text-white"><h2 className="text-2xl font-bold">📚 永久圖鑑</h2><button onClick={()=>setScreen('menu')} className="bg-gray-700 px-4 rounded">返回</button></div>
-                    <div className="grid grid-cols-4 gap-4">
-                        {allItems.map(item => {
-                            const owned = stats[playerKey].stickerBook && stats[playerKey].stickerBook.includes(item.id);
-                            return ( <div key={item.id} className={`p-2 rounded-xl text-center border-2 ${owned ? 'bg-white/20 border-yellow-400' : 'bg-black/40 border-gray-700 opacity-50 grayscale'}`}><div className="text-4xl mb-1">{item.icon}</div><div className="text-xs text-white">{owned ? item.name : '???'}</div></div> );
-                        })}
-                    </div>
-                </div>
-            );
-
-            const SettingsScreen = () => {
-                const [settingTab, setSettingTab] = useState('vocab');
-                const [settingChar, setSettingChar] = useState('daughter');
-                return (
-                    <div className="h-full bg-slate-900 p-6 overflow-y-auto z-20 text-white">
-                        <div className="flex justify-between mb-6"><h2 className="text-xl font-bold text-yellow-400">管理中心</h2><button onClick={()=>setScreen('menu')} className="bg-gray-700 px-4 rounded">退出</button></div>
-                        <div className="bg-white/5 p-4 rounded-xl mb-4">
-                            <h3 className="font-bold mb-2">☁️ 雲端同步</h3>
-                            {userObj ? <button onClick={async ()=>{await window.signOut(window.auth); setUserObj(null);}} className="bg-red-600 px-4 py-2 rounded font-bold w-full">登出: {userObj.email}</button> : <button onClick={handleLogin} className="bg-white text-black px-4 py-2 rounded font-bold w-full">Google 登入</button>}
-                        </div>
-                        <div className="flex gap-2 mb-4 bg-black/20 p-1 rounded-lg overflow-x-auto scrollbar-hide">{Object.values(CHARACTERS).filter(c=>c.id!=='mom').map(c => (<button key={c.id} onClick={()=>setSettingChar(c.id)} className={`flex-1 py-2 px-3 whitespace-nowrap rounded font-bold ${settingChar===c.id ? 'bg-indigo-600 text-white':'text-gray-400'}`}>{c.name}</button>))}</div>
-                        <div className="flex gap-2 mb-4"><button onClick={()=>setSettingTab('vocab')} className={`flex-1 py-2 rounded border border-white/10 ${settingTab==='vocab'?'bg-blue-600':'bg-white/5'}`}>📚 單字設定 (⭐重點)</button><button onClick={()=>setSettingTab('math')} className={`flex-1 py-2 rounded border border-white/10 ${settingTab==='math'?'bg-orange-600':'bg-white/5'}`}>🔢 數學難度</button></div>
-                        {settingTab === 'vocab' && <VocabSettings charKey={settingChar} />}
-                        {settingTab === 'math' && <MathSettings charKey={settingChar} />}
-                    </div>
-                );
-            };
-
-            const VocabSettings = ({ charKey }) => {
-                const [input, setInput] = useState({ word: '', mean: '', type: 'noun' });
-                const list = vocabMap[charKey] || [];
-                const add = () => { if(!input.word) return; const newItem = { ...input, isFocus: false }; const newList = [...list, newItem]; setVocabMap({ ...vocabMap, [charKey]: newList }); saveAll(null, { ...vocabMap, [charKey]: newList }); setInput({ word: '', mean: '', type: 'noun' }); };
-                const remove = (idx) => { const newList = [...list]; newList.splice(idx, 1); setVocabMap({ ...vocabMap, [charKey]: newList }); saveAll(null, { ...vocabMap, [charKey]: newList }); };
-                const toggleFocus = (idx) => { const newList = [...list]; newList[idx] = { ...newList[idx], isFocus: !newList[idx].isFocus }; setVocabMap({ ...vocabMap, [charKey]: newList }); saveAll(null, { ...vocabMap, [charKey]: newList }); };
-                return (
-                    <div className="bg-white/5 p-4 rounded-xl mt-4">
-                        <div className="flex gap-2 mb-2">
-                            <input value={input.word} onChange={e=>setInput({...input, word:e.target.value})} placeholder="英文" className="w-1/3 bg-black/40 p-2 rounded text-sm"/>
-                            <input value={input.mean} onChange={e=>setInput({...input, mean:e.target.value})} placeholder="中文" className="w-1/3 bg-black/40 p-2 rounded text-sm"/>
-                            <select value={input.type} onChange={e=>setInput({...input, type:e.target.value})} className="bg-black/40 p-2 rounded text-sm"><option value="noun">名詞</option><option value="verb">動詞</option><option value="adj">形容詞</option><option value="number">數字</option></select>
-                            <button onClick={add} className="bg-green-600 px-3 rounded"><LucideIcon name="plus" size={16}/></button>
-                        </div>
-                        <div className="max-h-60 overflow-y-auto space-y-2">
-                            {list.map((v, i) => (
-                                <div key={i} className={`flex justify-between items-center p-2 rounded ${v.isFocus ? 'bg-yellow-500/20 border border-yellow-500/50' : 'bg-black/30'}`}>
-                                    <div className="flex items-center gap-2"><button onClick={()=>toggleFocus(i)} className={`text-xl ${v.isFocus ? 'opacity-100' : 'opacity-30 grayscale'}`}>⭐</button><span className="font-bold text-blue-300">{v.word}</span><span className="text-xs text-gray-400">{v.mean}</span></div>
-                                    <button onClick={()=>remove(i)} className="text-gray-500 hover:text-red-500"><LucideIcon name="trash-2" size={16}/></button>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-                );
-            };
-
-            const MathSettings = ({ charKey }) => {
-                const isDaughter = charKey === 'daughter';
-                const settings = mathSettings[charKey] || (isDaughter ? INITIAL_MATH_SETTINGS.daughter : INITIAL_MATH_SETTINGS.son);
-                const updateSlot = (idx, field, val) => { const newS = { ...mathSettings }; newS.daughter.slots[idx][field] = parseInt(val) || 0; setMathSettings(newS); saveAll(null, null, newS); };
-                const updateWeight = (key, val) => { const newS = { ...mathSettings }; if (!newS[charKey]) newS[charKey] = { weights: { ...INITIAL_MATH_SETTINGS.son.weights } }; newS[charKey].weights[key] = parseInt(val) || 0; setMathSettings(newS); saveAll(null, null, newS); };
-                if (isDaughter) {
-                    return (<div className="bg-white/5 p-4 rounded-xl mt-4 space-y-2">{settings.slots.map((s, i) => (<div key={i} className="flex items-center gap-2 bg-black/20 p-2 rounded"><span className="text-gray-400 font-bold">#{i+1}</span><input type="number" value={s.range} onChange={e=>updateSlot(i,'range',e.target.value)} className="w-16 bg-black/40 text-center rounded p-1"/><span className="text-xs">以內</span><input type="range" max="10" value={s.weight} onChange={e=>updateSlot(i,'weight',e.target.value)} className="flex-1"/><span className="w-4 text-center text-pink-400 font-bold">{s.weight}</span></div>))}</div>);
-                } else {
-                    const weights = settings.weights || INITIAL_MATH_SETTINGS.son.weights;
-                    const labels = { '2-digit-add-sub': '2位數加減', '3-digit-add-sub': '3位數加減', '1-digit-mult': '2位x1位乘', '2-digit-mult': '2位x2位乘', 'div-exact': '整除', 'div-remain': '餘數' };
-                    return (<div className="bg-white/5 p-4 rounded-xl mt-4 grid grid-cols-1 gap-2">{Object.keys(weights).map(k => (<div key={k} className="flex items-center justify-between bg-black/20 p-2 rounded"><span className="text-xs text-gray-300">{labels[k]}</span><div className="flex items-center gap-2 w-32"><input type="range" max="10" value={weights[k]} onChange={e=>updateWeight(k,e.target.value)} className="flex-1"/><span className="w-4 text-center text-blue-400 font-bold">{weights[k]}</span></div></div>))}</div>);
+                    setAnimState('hurt'); playSFX('hit'); setFeedback('wrong'); setPlayerHp(h => Math.max(0, h - 34));
+                    setTimeout(() => { if (playerHp <= 34) setScreen('result'); else nextTurn(gameMode); }, 1000);
                 }
             };
 
             return (
-                <div className={`w-full h-screen flex flex-col overflow-hidden relative transition-all duration-1000 ${fever ? 'fever-mode' : ''}`}>
-                    {showHelp && <GameManual onClose={()=>setShowHelp(false)} />}
-                    {showLeaderboard && <LeaderboardModal stats={stats} onClose={()=>setShowLeaderboard(false)} />}
-                    {newItem && (<div className="absolute inset-0 z-50 flex items-center justify-center bg-black/80 animate-pop"><div className="bg-gradient-to-b from-yellow-400 to-orange-500 p-8 rounded-3xl text-center border-4 border-white shadow-2xl"><h3 className="text-2xl font-black text-white mb-4">🎉 獲得寶物！</h3><div className="text-8xl mb-4 animate-bounce">{newItem.icon}</div><div className="text-3xl font-bold text-black">{newItem.name}</div><div className="text-sm text-white mt-2 font-bold opacity-80">已加入圖鑑</div></div></div>)}
-
-                    {screen === 'menu' && !audioStarted && (<div className="absolute inset-0 z-50 bg-black/90 flex items-center justify-center cursor-pointer" onClick={()=>{initAudio(); setAudioStarted(true); playMusic('menu');}}><div className="text-center animate-pulse"><div className="text-6xl mb-4">🎵</div><h2 className="text-2xl font-bold text-white">點擊畫面開始遊戲</h2><p className="text-gray-400 text-sm mt-2">開啟音效與背景音樂</p></div></div>)}
-
+                <div className={`w-full h-screen flex flex-col overflow-hidden relative ${CHARACTERS[playerKey].bg} transition-all duration-1000`}>
+                    {/* MENU */}
                     {screen === 'menu' && (
-                        <div className="p-4 flex flex-col items-center justify-center h-full relative z-10 bg-indigo-900 text-white">
-                            <h1 className="text-4xl font-black text-yellow-400 mb-6 drop-shadow-lg">⚔️ 印家英雄榜</h1>
-                            
-                            <div className="w-full max-w-lg bg-red-900/80 p-2 rounded-xl mb-4 border-2 border-red-500 flex items-center gap-3">
-                                <div className="text-3xl animate-bounce">🐲</div>
-                                <div className="flex-1">
-                                    <div className="text-xs text-red-200 font-bold uppercase flex justify-between"><span>世界惡龍討伐</span><span>{Math.max(0, raidData.hp)}/{raidData.maxHp}</span></div>
-                                    <div className="h-2 w-full bg-black rounded-full overflow-hidden mt-1"><div className="h-full bg-red-500 transition-all duration-500" style={{width: `${(raidData.hp/raidData.maxHp)*100}%`}}></div></div>
-                                </div>
-                            </div>
-
-                            <div className="grid grid-cols-4 gap-2 mb-4 bg-black/20 p-2 rounded-xl w-full max-w-lg">
+                        <div className="p-6 flex flex-col items-center justify-center h-full z-10 space-y-8">
+                            <h1 className="text-4xl font-black text-yellow-400 drop-shadow-lg tracking-widest">印家英雄榜</h1>
+                            <div className="flex gap-4">
                                 {Object.values(CHARACTERS).map(c => (
-                                    <button key={c.id} onClick={() => setPlayerKey(c.id)} className={`flex flex-col items-center justify-center py-2 rounded-lg transition-all ${playerKey === c.id ? 'bg-yellow-500 text-black scale-105 shadow-lg' : 'text-gray-400 hover:bg-white/10'}`}>
-                                        <span className="text-2xl mb-1">{c.avatar}</span><span className="text-xs font-bold">{c.name}</span>{c.subName && <span className="text-[9px] block text-green-300">{c.subName}</span>}
+                                    <button key={c.id} onClick={()=>setPlayerKey(c.id)} className={`flex flex-col items-center p-3 rounded-2xl border-2 transition-all ${playerKey===c.id?'border-yellow-400 bg-white/20 scale-110 shadow-xl':'border-transparent opacity-50'}`}>
+                                        <div className="text-4xl anim-idle">{c.avatar}</div><div className="text-xs font-bold mt-2">{c.name}</div>
                                     </button>
                                 ))}
                             </div>
-                            <div className="bg-white/10 p-6 rounded-[2.5rem] border-4 border-white/20 flex flex-col items-center backdrop-blur-sm w-full max-w-sm mb-6 relative">
-                                <div className="relative mb-6 scale-110">
-                                    <FullBodyChar charId={playerKey} items={stats[playerKey].earnedItems} isAnimating="idle" />
+                            <div className="bg-white/10 p-8 rounded-[3rem] w-full max-w-sm border-2 border-white/20 backdrop-blur-md text-center">
+                                <div className="mb-6 scale-125"><FullBodyChar charId={playerKey} items={[]} isAnimating="idle" /></div>
+                                <div className="grid grid-cols-1 gap-4">
+                                    <button onClick={()=>handleStartClick('daily_math')} className="bg-orange-600 p-4 rounded-2xl font-bold flex items-center justify-between px-8 shadow-lg active:scale-95">
+                                        <div className="flex items-center gap-3"><span className="text-2xl">🧮</span> 數學挑戰</div><div className="text-xs bg-black/30 px-2 py-1 rounded">Lv.{stats[playerKey].dailyMathLevel}</div>
+                                    </button>
+                                    <button onClick={()=>handleStartClick('daily_english')} className="bg-blue-600 p-4 rounded-2xl font-bold flex items-center justify-between px-8 shadow-lg active:scale-95">
+                                        <div className="flex items-center gap-3"><span className="text-2xl">🗣️</span> 英文挑戰</div><div className="text-xs bg-black/30 px-2 py-1 rounded">Lv.{stats[playerKey].dailyEnglishLevel}</div>
+                                    </button>
                                 </div>
-                                {(playerKey === 'mom' || playerKey === 'challenger') && (
-                                    <div className="flex bg-black/30 rounded-full p-1 mb-4 w-full text-sm font-bold">
-                                        <button onClick={()=>setMomMode('daughter')} className={`flex-1 py-1 rounded-full ${momMode==='daughter'?'bg-pink-600':'text-gray-400'}`}>測妹妹</button>
-                                        <button onClick={()=>setMomMode('son')} className={`flex-1 py-1 rounded-full ${momMode==='son'?'bg-blue-600':'text-gray-400'}`}>測哥哥</button>
+                            </div>
+                            {/* Mode Choice Modal */}
+                            {showModeChoice && (
+                                <div className="fixed inset-0 bg-black/80 flex items-center justify-center p-6 z-50 animate-pop">
+                                    <div className="bg-slate-800 w-full max-w-md rounded-3xl p-6 border-2 border-blue-400 text-white">
+                                        <h3 className="text-2xl font-bold text-center mb-6 text-blue-300">選擇英文戰鬥風格</h3>
+                                        {stats[playerKey].dailyEnglishLevel >= 60 ? (
+                                            <div className="text-center p-4 bg-red-900/50 rounded-xl mb-4 border border-red-500">
+                                                <div className="text-2xl mb-2">🔥 大師挑戰開啟！</div>
+                                                <p className="text-sm">您已達到 Lv.60 以上，為了成為真正的英語大師，系統已強制鎖定為「拼字模式」！</p>
+                                            </div>
+                                        ) : (
+                                            <div className="space-y-4">
+                                                <button onClick={()=>startGame('daily_english', 'select')} className="w-full bg-white/10 p-4 rounded-2xl border border-white/20 hover:bg-white/20 text-left">
+                                                    <div className="font-bold text-lg">🟢 選擇題模式 (Easy)</div><div className="text-xs text-gray-400">利：點擊速度快，適合練習聽力。</div>
+                                                </button>
+                                            </div>
+                                        )}
+                                        <button onClick={()=>startGame('daily_english', 'type')} className="w-full bg-blue-600/50 p-4 rounded-2xl border-2 border-blue-400 text-left mt-4">
+                                            <div className="font-bold text-lg text-yellow-400">🔥 拼字題模式 (Hard)</div>
+                                            <div className="text-xs text-blue-100">獲得 1.5 倍分數加成！</div>
+                                        </button>
+                                        <button onClick={()=>setShowModeChoice(false)} className="mt-6 w-full py-2 text-gray-400">返回</button>
+                                    </div>
+                                </div>
+                            )}
+                            <div className="flex gap-4 text-sm text-gray-400"><button onClick={()=>{if(prompt("密碼")===PARENT_PASSWORD) setScreen('settings')}} className="hover:text-white">⚙️ 管理中心</button></div>
+                        </div>
+                    )}
+
+                    {/* GAME */}
+                    {screen === 'game' && (
+                        <div className="h-full flex flex-col relative z-10">
+                            <div className="p-4 flex justify-between items-center bg-black/40 backdrop-blur-md">
+                                <div className="flex items-center gap-3"><div className="text-3xl">{CHARACTERS[playerKey].avatar}</div><div className="w-24 h-4 bg-gray-700 rounded-full overflow-hidden border border-white/20"><div className="h-full bg-green-500 transition-all duration-500" style={{width: playerHp+'%'}} /></div></div>
+                                <div className="text-center"><div className="text-xs font-bold text-yellow-400 tracking-widest">LEVEL {dailyLevel}</div><div className={`text-4xl font-mono font-bold ${timer<5?'text-red-500 animate-pulse':''}`}>{timer}</div></div>
+                                <div className="text-4xl">👹</div>
+                            </div>
+                            <div className={`flex-1 relative flex items-center justify-between px-8 sm:px-20 overflow-hidden ${animState==='hurt'?'shake-active':''}`}>
+                                <div className={`transition-transform duration-200 ${animState==='playerAttack'?'translate-x-20 scale-110':''}`}><FullBodyChar charId={playerKey} items={[]} isAnimating={animState} /></div>
+                                {effectType === 'ice' && <div className="effect-ice"></div>}{effectType === 'beetle' && <div className="effect-crush">🪲</div>}
+                                <div className={`text-9xl anim-idle transition-all duration-300 ${animState==='playerAttack'?'anim-damage opacity-50':''}`}>{MONSTERS[dailyLevel % MONSTERS.length]}</div>
+                            </div>
+                            <div className="bg-slate-900/90 p-6 rounded-t-[3rem] border-t-2 border-white/10 pb-12 shadow-2xl">
+                                <div className="text-center mb-6">
+                                    <div className="text-xs font-bold text-blue-400 mb-2 uppercase tracking-tighter">{gameMode.includes('math') ? 'Mathematics' : `English`}</div>
+                                    
+                                    {/* 點擊題目重聽功能 */}
+                                    {gameMode.includes('english') ? (
+                                        <div 
+                                            onClick={() => speakWord(question.fullSentence)}
+                                            className="cursor-pointer active:scale-95 transition-transform bg-white/5 p-4 rounded-2xl border border-white/10 flex items-center justify-center gap-3"
+                                        >
+                                            <LucideIcon name="volume-2" className="text-yellow-400 w-6 h-6 animate-pulse"/>
+                                            <div>
+                                                <h2 className="text-3xl font-black">{question.text}</h2>
+                                                <div className="text-sm text-gray-400 mt-1">{question.hint} (點擊重聽)</div>
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <h2 className="text-3xl font-black mb-1">{question.text}</h2>
+                                    )}
+                                </div>
+
+                                {inputMode === 'select' ? (
+                                    <div className="grid grid-cols-2 gap-4 max-w-md mx-auto">{question.options.map(o => (<button key={o} onClick={()=>handleAnswer(o)} className="bg-white/10 p-5 rounded-2xl font-bold text-xl border-2 border-white/5 active:bg-blue-600 transition-colors">{o}</button>))}</div>
+                                ) : (
+                                    <div className="flex flex-col gap-4 max-w-md mx-auto">
+                                        <input value={userAnswer} onChange={e=>setUserAnswer(e.target.value)} onKeyDown={e=>e.key==='Enter' && handleAnswer(userAnswer)} className="w-full bg-black/60 border-2 border-white/20 p-5 text-3xl rounded-2xl text-center outline-none text-white font-bold" placeholder="拼出單字..." autoFocus autoCapitalize="none" autoCorrect="off" spellCheck="false" inputMode="text"/>
+                                        <button onClick={()=>handleAnswer(userAnswer)} className="bg-yellow-400 text-black py-4 rounded-2xl font-black text-xl shadow-lg active:scale-95">攻擊 (GO!)</button>
                                     </div>
                                 )}
-                                <div className="grid grid-cols-2 gap-3 w-full">
-                                    <button onClick={()=>handleStart('daily_math')} className="bg-orange-500 p-4 rounded-xl font-bold flex flex-col items-center shadow-lg active:scale-95"><div className="text-2xl mb-1">🧮</div>挑戰數學<div className="text-xs opacity-70 bg-black/20 px-2 rounded mt-1">Lv.{stats[playerKey].dailyMathLevel}</div></button>
-                                    <button onClick={()=>handleStart('daily_english')} className="bg-blue-500 p-4 rounded-xl font-bold flex flex-col items-center shadow-lg active:scale-95"><div className="text-2xl mb-1">🗣️</div>挑戰英文<div className="text-xs opacity-70 bg-black/20 px-2 rounded mt-1">Lv.{stats[playerKey].dailyEnglishLevel}</div></button>
-                                </div>
-                            </div>
-                            <div className="flex gap-4 text-sm text-gray-400">
-                                <button onClick={() => setScreen('sticker')} className="bg-white/5 px-3 py-1 rounded flex items-center gap-1"><LucideIcon name="book-open" size={14}/> 圖鑑</button>
-                                <button onClick={() => setShowLeaderboard(true)} className="bg-white/5 px-3 py-1 rounded flex items-center gap-1"><LucideIcon name="trophy" size={14}/> 排行</button>
-                                <button onClick={() => setShowHelp(true)} className="bg-white/5 px-3 py-1 rounded flex items-center gap-1"><LucideIcon name="info" size={14}/> 說明</button>
-                                <button onClick={enterSettings} className="bg-white/5 px-3 py-1 rounded flex items-center gap-1"><LucideIcon name="settings" size={14}/> 管理</button>
+                                {feedback && <div className={`absolute inset-0 flex items-center justify-center bg-black/60 z-50 pointer-events-none rounded-t-[3rem]`}><div className={`text-9xl font-black ${feedback==='correct'?'text-green-500':'text-red-500'} pop-in`}>{feedback==='correct'?'⭕':'❌'}</div></div>}
                             </div>
                         </div>
                     )}
 
-                    {screen === 'game' && (
-                        <div className="h-full flex flex-col bg-slate-900/50 text-white relative z-10">
-                            <div className="p-3 flex justify-between items-center bg-black/30 backdrop-blur">
-                                <div className="flex items-center gap-2"><div className="text-2xl">{CHARACTERS[playerKey].avatar}</div><div className="w-24 h-3 bg-gray-700 rounded-full overflow-hidden"><div className="h-full bg-green-500 transition-all" style={{width:`${playerHp}%`}}/></div></div>
-                                <div className={`text-center ${fever ? 'scale-110 text-yellow-300' : ''}`}><div className="text-xs font-bold">LV.{dailyLevel} {fever && '🔥FEVER!'}</div><div className="text-3xl font-mono font-bold">{timer}</div></div>
-                                <div className={`text-2xl ${question.isBoss ? 'boss-mode' : ''}`}>{scenario.emoji}</div>
-                            </div>
-                            <div className="flex-1 flex flex-col items-center justify-center p-4 relative overflow-hidden">
-                                <div className="absolute inset-0 flex justify-between items-center px-4 pointer-events-none opacity-80"><div className={`text-9xl transition-transform duration-300 ${animState==='attack'?'translate-x-20':''} ${animState==='hurt'?'animate-shake':''}`}><FullBodyChar charId={playerKey} items={stats[playerKey].earnedItems} /></div><div className={`text-9xl transition-transform duration-300 ${animState==='attack'?'animate-shake':''} ${animState==='hurt'?'-translate-x-20':''}`}>{scenario.emoji}</div></div>
-                                {effectText && <div className="absolute top-1/3 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-6xl font-black text-yellow-300 drop-shadow-lg animate-float-up z-20">{effectText}</div>}
-                                <div className="absolute bottom-4 left-4 flex gap-2 z-20">
-                                    {hasHeal && <button onClick={()=>useSkill('heal')} disabled={skillUsed.heal} className={`p-3 rounded-full text-2xl shadow-lg border-2 border-white ${skillUsed.heal ? 'bg-gray-500 opacity-50' : 'bg-green-500 animate-bounce'}`}>🧪</button>}
-                                    {hasTime && <button onClick={()=>useSkill('time')} disabled={skillUsed.time} className={`p-3 rounded-full text-2xl shadow-lg border-2 border-white ${skillUsed.time ? 'bg-gray-500 opacity-50' : 'bg-blue-500 animate-bounce'}`}>⏳</button>}
-                                </div>
-                                <div className={`bg-white/10 backdrop-blur-md p-6 rounded-3xl w-full max-w-md text-center border border-white/20 shadow-2xl relative z-10 transition-transform ${feedback?'scale-105':''}`}>
-                                    {feedback && <div className={`absolute inset-0 flex items-center justify-center text-8xl font-bold bg-black/60 rounded-3xl z-20 ${feedback==='correct'?'text-green-500':'text-red-500'}`}>{feedback==='correct'?'⭕':'❌'}</div>}
-                                    <div className="mb-4">
-                                        <span className="text-blue-300 text-xs font-bold uppercase bg-black/40 px-2 py-1 rounded">{gameMode.includes('math')?'MATH':`ENGLISH`}</span>
-                                        {question.isListening ? (<div className="mt-4 text-4xl font-bold animate-pulse text-yellow-300 cursor-pointer" onClick={()=>speakWord(question.fullSentence)}>🔊 點擊聽題目</div>) : (<h2 className="text-4xl font-black mt-2 leading-tight">{gameMode.includes('math')?question.text:question.display}</h2>)}
-                                    </div>
-                                    {gameMode.includes('english') && inputMode === 'select' ? (<div className="grid grid-cols-2 gap-3">{question.options.map(opt=><button key={opt} onClick={()=>handleAnswer(opt)} className="bg-white/10 p-4 rounded-xl font-bold text-xl border border-white/10 active:bg-indigo-600 transition-colors">{opt}</button>)}</div>) : (<div className="flex gap-2"><input value={userAnswer} onChange={e=>setUserAnswer(e.target.value)} className="flex-1 bg-black/50 border-2 border-white/20 rounded-xl p-3 text-2xl text-center outline-none focus:border-yellow-400 text-white" placeholder="輸入..." type={gameMode.includes('math')?'tel':'text'}/><button onClick={()=>handleAnswer(userAnswer)} className="bg-yellow-500 text-black px-6 rounded-xl font-black text-xl shadow-lg active:scale-95">GO</button></div>)}
-                                    {gameMode.includes('english') && <div className="mt-4 flex justify-center gap-2"><button onClick={()=>setInputMode('select')} className={`px-3 py-1 rounded-full text-xs font-bold ${inputMode==='select'?'bg-blue-600':'bg-white/10'}`}>選擇題</button><button onClick={()=>setInputMode('type')} className={`px-3 py-1 rounded-full text-xs font-bold ${inputMode==='type'?'bg-purple-600':'bg-white/10'}`}>拼字題</button></div>}
-                                </div>
+                    {/* SETTINGS */}
+                    {screen === 'settings' && (
+                        <div className="h-full bg-slate-900 p-6 overflow-y-auto">
+                            <div className="flex justify-between mb-6"><h2 className="text-xl font-bold text-yellow-400">管理中心</h2><button onClick={()=>setScreen('menu')} className="bg-gray-700 px-4 rounded">退出</button></div>
+                            <div className="bg-white/5 p-4 rounded-xl mb-4">
+                                <h3 className="font-bold mb-2">☁️ 雲端同步</h3>
+                                {userObj ? <button onClick={async ()=>{await window.signOut(window.auth); setUserObj(null);}} className="bg-red-600 px-4 py-2 rounded font-bold w-full">登出: {userObj.email}</button> : <button onClick={handleLogin} className="bg-white text-black px-4 py-2 rounded font-bold w-full">Google 登入</button>}
                             </div>
                         </div>
                     )}
 
-                    {screen === 'sticker' && <StickerBook />}
-                    {screen === 'result' && <div className="h-full flex flex-col items-center justify-center p-8 text-center bg-indigo-900 text-white"><div className="text-6xl mb-4">{dailyLevel%10===0?'🏆':'💀'}</div><h2 className="text-3xl font-bold mb-4">{dailyLevel%10===0?'挑戰成功！':'再接再厲'}</h2><div className="text-xl text-yellow-300 mb-4">本次得分: {score}</div><button onClick={()=>setScreen('menu')} className="bg-white text-black px-8 py-3 rounded-xl font-bold">返回</button></div>}
-                    {screen === 'vocab' && <div className="h-full p-4 overflow-y-auto bg-indigo-900 text-white"><button onClick={()=>setScreen('menu')} className="mb-4 bg-gray-700 px-3 py-1 rounded">返回</button><div className="grid grid-cols-2 gap-2">{(vocabMap[playerKey]||BASE_VOCAB).map((v,i)=><div key={i} onClick={()=>speakWord(v.word)} className="bg-white/10 p-2 rounded border border-white/5">{v.word} <span className="text-xs text-gray-400">{v.mean}</span></div>)}</div></div>}
-                    {screen === 'settings' && <SettingsScreen />}
+                    {/* RESULT */}
+                    {screen === 'result' && (
+                        <div className="h-full flex flex-col items-center justify-center p-8 bg-slate-900 text-center animate-pop">
+                            {playerHp > 0 ? <div className="text-9xl mb-6">🏆</div> : <div className="text-9xl mb-6">💀</div>}
+                            <h2 className="text-4xl font-black text-yellow-400 mb-4">{playerHp > 0 ? '大獲全勝！' : '再接再厲！'}</h2>
+                            <p className="text-gray-400 mb-10">達成等級：Lv.{dailyLevel}</p>
+                            <button onClick={()=>setScreen('menu')} className="bg-white text-black px-16 py-5 rounded-3xl font-black text-2xl shadow-2xl hover:scale-105 active:scale-95 transition-all">返回基地</button>
+                        </div>
+                    )}
                 </div>
             );
         }
