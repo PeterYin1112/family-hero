@@ -3,22 +3,21 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>印家英雄榜：知識大冒險</title>
-    <!-- React 核心 -->
+    <title>印家英雄榜：終極進化</title>
+    <!-- React & Babel -->
     <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     
-    <!-- Firebase SDK 設定區 -->
+    <!-- Firebase SDK -->
     <script type="module">
-        // 改用瀏覽器可以直接讀取的網址
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-        import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
-        import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+        import { getFirestore, doc, getDoc, setDoc, onSnapshot, updateDoc, increment } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+        import { getAuth, signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 
-        // 您的專屬設定 (已填入)
+        // --- 請確認您的 Firebase Config ---
         const firebaseConfig = {
             apiKey: "AIzaSyCagXSigdL09-OK4G5jF20Hj3iXnRVQs-M",
             authDomain: "family-hero-f89f7.firebaseapp.com",
@@ -29,90 +28,79 @@
             measurementId: "G-G3FBB69BBD"
         };
 
-        // 初始化並掛載到 window 讓 React 使用
         try {
             const app = initializeApp(firebaseConfig);
             window.db = getFirestore(app);
             window.auth = getAuth(app);
             window.provider = new GoogleAuthProvider();
-            
-            // 匯出功能給 React
-            window.doc = doc;
-            window.getDoc = getDoc;
-            window.setDoc = setDoc;
-            window.signInWithPopup = signInWithPopup;
-            window.signOut = signOut;
-            
-            console.log("Firebase 雲端連線成功！");
-        } catch (e) {
-            console.error("Firebase 初始化失敗:", e);
-        }
+            window.doc = doc; window.getDoc = getDoc; window.setDoc = setDoc; window.onSnapshot = onSnapshot; window.updateDoc = updateDoc; window.increment = increment;
+            window.signInWithPopup = signInWithPopup; window.signOut = signOut; window.onAuthStateChanged = onAuthStateChanged;
+            console.log("🔥 Firebase Ready");
+        } catch (e) { console.error("Firebase init error", e); }
     </script>
 
     <style>
-        /* 動畫與特效 */
-        @keyframes shake { 0%, 100% { transform: translate(0, 0); } 10%, 30%, 50%, 70%, 90% { transform: translate(-5px, 0); } 20%, 40%, 60%, 80% { transform: translate(5px, 0); } }
-        .animate-shake { animation: shake 0.5s ease-in-out; }
-        @keyframes spin-slow { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-        .animate-spin-slow { animation: spin-slow 12s linear infinite; }
-        @keyframes pulse-fast { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
-        .animate-pulse-fast { animation: pulse-fast 1s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
-        @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
-        .animate-float { animation: float 3s ease-in-out infinite; }
-        @keyframes pop-in { 0% { transform: scale(0); opacity: 0; } 80% { transform: scale(1.2); opacity: 1; } 100% { transform: scale(1); } }
-        .animate-pop { animation: pop-in 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; }
+        /* 動畫定義 */
+        @keyframes shake { 0%, 100% { transform: translate(0, 0); } 10%, 90% { transform: translate(-5px, 0); } 50% { transform: translate(5px, 0); } }
+        .animate-shake { animation: shake 0.4s ease-in-out; }
+        @keyframes pulse-fast { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.1); } }
+        .animate-heartbeat { animation: pulse-fast 0.8s infinite; }
+        @keyframes attack-rush { 0% { transform: translateX(0); } 50% { transform: translateX(50px) scale(1.2); } 100% { transform: translateX(0); } }
+        .animate-attack { animation: attack-rush 0.3s ease-out; }
+        @keyframes boss-float { 0%, 100% { transform: translateY(0) scale(1.5); } 50% { transform: translateY(-20px) scale(1.55); } }
+        .boss-mode { animation: boss-float 3s ease-in-out infinite; filter: drop-shadow(0 0 20px red); }
+        @keyframes fire-border { 0% { box-shadow: inset 0 0 20px red; } 50% { box-shadow: inset 0 0 50px orange; } 100% { box-shadow: inset 0 0 20px red; } }
+        .fever-mode { animation: fire-border 1s infinite; border: 2px solid #fbbf24; }
+        @keyframes pop { 0% { transform: scale(0); } 80% { transform: scale(1.2); } 100% { transform: scale(1); } }
+        .pop-in { animation: pop 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; }
         
-        body { background-color: #1e1b4b; color: white; margin: 0; overflow-x: hidden; font-family: "Segoe UI", Roboto, Helvetica, Arial, sans-serif; -webkit-tap-highlight-color: transparent; }
-        .no-select { user-select: none; -webkit-user-select: none; }
-        button:active { transform: scale(0.95); }
-        .scrollbar-hide::-webkit-scrollbar { display: none; }
-        .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+        body { margin: 0; overflow: hidden; font-family: "Segoe UI", system-ui, sans-serif; user-select: none; -webkit-tap-highlight-color: transparent; }
         
-        /* 裝備位置 */
-        .char-container { position: relative; width: 120px; height: 160px; display: flex; flex-direction: column; align-items: center; }
-        .char-head { font-size: 4rem; z-index: 10; filter: drop-shadow(0 4px 2px rgba(0,0,0,0.3)); }
-        .char-body { width: 40px; height: 50px; border-radius: 10px; position: relative; z-index: 5; margin-top: -10px; box-shadow: inset 0 0 10px rgba(0,0,0,0.2); }
-        .char-body.princess { background: linear-gradient(to bottom, #ec4899, #db2777); }
-        .char-body.hero { background: linear-gradient(to bottom, #3b82f6, #2563eb); }
-        .char-limb { width: 10px; height: 30px; background-color: #fca5a5; position: absolute; border-radius: 5px; }
-        .arm-l { left: -8px; top: 5px; transform: rotate(20deg); background-color: inherit; filter: brightness(0.9); }
-        .arm-r { right: -8px; top: 5px; transform: rotate(-20deg); background-color: inherit; filter: brightness(0.9); }
-        .leg-l { left: 5px; bottom: -25px; background-color: #374151; height: 35px; }
-        .leg-r { right: 5px; bottom: -25px; background-color: #374151; height: 35px; }
+        /* 生態系背景 */
+        .bg-forest { background: linear-gradient(to bottom, #14532d, #166534); }
+        .bg-desert { background: linear-gradient(to bottom, #7c2d12, #b45309); }
+        .bg-ice { background: linear-gradient(to bottom, #1e3a8a, #0ea5e9); }
+        .bg-volcano { background: linear-gradient(to bottom, #450a0a, #7f1d1d); }
         
-        .slot-hat { position: absolute; top: -15px; left: 50%; transform: translateX(-50%); font-size: 2.5rem; z-index: 20; filter: drop-shadow(0 2px 2px rgba(0,0,0,0.5)); }
-        .slot-weapon { position: absolute; top: 40px; right: -30px; font-size: 2.5rem; z-index: 20; transform: rotate(-15deg); filter: drop-shadow(0 0 5px gold); }
-        .slot-shield { position: absolute; top: 45px; left: -25px; font-size: 2rem; z-index: 15; filter: drop-shadow(0 2px 2px rgba(0,0,0,0.5)); }
-        .slot-pet { position: absolute; bottom: -10px; left: -50px; font-size: 2rem; z-index: 10; animation: bounce-slow 2s infinite; }
+        /* 角色構造 */
+        .char-container { position: relative; width: 100px; height: 140px; display: flex; flex-direction: column; align-items: center; }
+        .char-head { font-size: 3.5rem; z-index: 10; filter: drop-shadow(0 2px 2px rgba(0,0,0,0.3)); }
+        .char-body { width: 36px; height: 45px; border-radius: 8px; position: relative; z-index: 5; margin-top: -10px; }
+        .char-body.princess { background: linear-gradient(180deg, #ec4899, #be185d); }
+        .char-body.hero { background: linear-gradient(180deg, #3b82f6, #1d4ed8); }
+        .char-limb { width: 8px; height: 25px; background: #fda4af; position: absolute; border-radius: 4px; }
+        .arm-l { left: -6px; top: 5px; transform: rotate(20deg); }
+        .arm-r { right: -6px; top: 5px; transform: rotate(-20deg); }
+        .leg-l { left: 6px; bottom: -20px; height: 30px; background: #374151; }
+        .leg-r { right: 6px; bottom: -20px; height: 30px; background: #374151; }
         
-        @media (max-width: 640px) {
-            .input-group { flex-direction: column; }
-            .input-field { width: 100% !important; margin-bottom: 0.5rem; font-size: 1.5rem !important; }
-            .submit-btn { width: 100% !important; padding: 1rem !important; }
-        }
+        /* 裝備掛點 */
+        .slot-hat { position: absolute; top: -20px; left: 50%; transform: translateX(-50%); font-size: 2rem; z-index: 20; filter: drop-shadow(0 2px 2px rgba(0,0,0,0.5)); }
+        .slot-weapon { position: absolute; top: 30px; right: -25px; font-size: 2rem; z-index: 20; transform: rotate(-15deg); filter: drop-shadow(0 0 5px gold); }
+        .slot-pet { position: absolute; bottom: 0; left: -40px; font-size: 1.8rem; animation: float 3s infinite; }
+        @keyframes float { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-10px)} }
     </style>
 </head>
-<body class="no-select">
+<body>
     <div id="root"></div>
 
     <script type="text/babel">
         const { useState, useEffect, useRef } = React;
 
-        // --- 資料與設定 ---
+        // --- 核心資料 ---
         const SENTENCE_TEMPLATES = {
-            noun: [{ text: "This is a ___.", hint: "這是一個..." }, { text: "I can see a ___.", hint: "我看見一個..." }, { text: "Do you like the ___?", hint: "你喜歡這個...嗎？" }, { text: "The ___ is over there.", hint: "那個...在那邊" }, { text: "I have a ___.", hint: "我有一個..." }, { text: "Look at that ___!", hint: "看那個...!" }, { text: "Where is the ___?", hint: "那個...在哪裡？" }, { text: "Please give me a ___.", hint: "請給我一個..." }, { text: "Is that a ___?", hint: "那是一個...嗎？" }, { text: "Draw a big ___.", hint: "畫一個大的..." }, { text: "My ___ is cute.", hint: "我的...很可愛" }, { text: "I want a ___.", hint: "我想要一個..." }, { text: "That is a ___.", hint: "那是一個..." }],
-            verb: [{ text: "I like to ___.", hint: "我喜歡..." }, { text: "Can you ___?", hint: "你會...嗎？" }, { text: "Let's ___ together.", hint: "我們一起...吧" }, { text: "Please ___ now.", hint: "請現在..." }, { text: "Don't ___ here.", hint: "不要在這裡..." }, { text: "I want to ___.", hint: "我想要..." }, { text: "It is time to ___.", hint: "是時候...了" }, { text: "We ___ every day.", hint: "我們每天..." }, { text: "Do not ___.", hint: "不要..." }, { text: "He likes to ___.", hint: "他喜歡..." }],
-            adj: [{ text: "It looks very ___.", hint: "它看起來很..." }, { text: "Are you ___?", hint: "你覺得...嗎？" }, { text: "The cat is ___.", hint: "這隻貓很..." }, { text: "I feel ___ today.", hint: "我今天覺得很..." }, { text: "Don't be ___.", hint: "不要..." }, { text: "He is so ___.", hint: "他好..." }, { text: "The weather is ___.", hint: "天氣很..." }, { text: "Is it ___?", hint: "它...嗎？" }, { text: "My dog is ___.", hint: "我的狗很..." }],
-            number: [{ text: "I have ___ apples.", hint: "我有...顆蘋果" }, { text: "Count to ___.", hint: "數到..." }, { text: "The number is ___.", hint: "數字是..." }, { text: "I see ___ birds.", hint: "我看見...隻鳥" }, { text: "Give me ___ books.", hint: "給我...本書" }]
+            noun: [{ text: "This is a ___.", hint: "這是一個..." }, { text: "I can see a ___.", hint: "我看見一個..." }, { text: "Do you like the ___?", hint: "你喜歡這個...嗎？" }, { text: "The ___ is over there.", hint: "那個...在那邊" }, { text: "I have a ___.", hint: "我有一個..." }],
+            verb: [{ text: "I like to ___.", hint: "我喜歡..." }, { text: "Can you ___?", hint: "你會...嗎？" }, { text: "Let's ___ together.", hint: "我們一起...吧" }, { text: "Please ___ now.", hint: "請現在..." }],
+            adj: [{ text: "It looks very ___.", hint: "它看起來很..." }, { text: "The cat is ___.", hint: "這隻貓很..." }, { text: "I feel ___ today.", hint: "我今天覺得很..." }],
+            number: [{ text: "I have ___ apples.", hint: "我有...顆蘋果" }, { text: "Count to ___.", hint: "數到..." }]
         };
 
         const BASE_VOCAB = [
-            { word: "cat", type: "noun", mean: "貓" }, { word: "dog", type: "noun", mean: "狗" }, { word: "pig", type: "noun", mean: "豬" }, { word: "bird", type: "noun", mean: "鳥" }, { word: "duck", type: "noun", mean: "鴨子" }, { word: "lion", type: "noun", mean: "獅子" }, { word: "fish", type: "noun", mean: "魚" }, { word: "monkey", type: "noun", mean: "猴子" }, { word: "tiger", type: "noun", mean: "老虎" }, { word: "zebra", type: "noun", mean: "斑馬" },
-            { word: "apple", type: "noun", mean: "蘋果" }, { word: "banana", type: "noun", mean: "香蕉" }, { word: "egg", type: "noun", mean: "蛋" }, { word: "cake", type: "noun", mean: "蛋糕" }, { word: "milk", type: "noun", mean: "牛奶", u: true }, { word: "water", type: "noun", mean: "水", u: true }, { word: "rice", type: "noun", mean: "米飯", u: true }, { word: "candy", type: "noun", mean: "糖果", u: true },
-            { word: "sun", type: "noun", mean: "太陽", unique: true }, { word: "moon", type: "noun", mean: "月亮", unique: true }, { word: "star", type: "noun", mean: "星星" }, { word: "tree", type: "noun", mean: "樹" }, { word: "flower", type: "noun", mean: "花" }, { word: "book", type: "noun", mean: "書" }, { word: "pen", type: "noun", mean: "筆" }, { word: "bag", type: "noun", mean: "書包" }, { word: "bus", type: "noun", mean: "公車" }, { word: "car", type: "noun", mean: "車子" },
-            { word: "eye", type: "noun", mean: "眼睛" }, { word: "nose", type: "noun", mean: "鼻子" }, { word: "mouth", type: "noun", mean: "嘴巴" }, { word: "hand", type: "noun", mean: "手" },
-            { word: "run", type: "verb", mean: "跑" }, { word: "jump", type: "verb", mean: "跳" }, { word: "walk", type: "verb", mean: "走路" }, { word: "swim", type: "verb", mean: "游泳" }, { word: "fly", type: "verb", mean: "飛" }, { word: "eat", type: "verb", mean: "吃" }, { word: "drink", type: "verb", mean: "喝" }, { word: "sleep", type: "verb", mean: "睡覺" }, { word: "draw", type: "verb", mean: "畫畫" }, { word: "sing", type: "verb", mean: "唱歌" },
-            { word: "big", type: "adj", mean: "大的" }, { word: "small", type: "adj", mean: "小的" }, { word: "hot", type: "adj", mean: "熱的" }, { word: "cold", type: "adj", mean: "冷的" }, { word: "happy", type: "adj", mean: "快樂的" }, { word: "sad", type: "adj", mean: "難過的" }, { word: "red", type: "adj", mean: "紅色的" }, { word: "blue", type: "adj", mean: "藍色的" }
+            { word: "cat", type: "noun", mean: "貓" }, { word: "dog", type: "noun", mean: "狗" }, { word: "pig", type: "noun", mean: "豬" }, { word: "bird", type: "noun", mean: "鳥" }, { word: "lion", type: "noun", mean: "獅子" },
+            { word: "apple", type: "noun", mean: "蘋果" }, { word: "banana", type: "noun", mean: "香蕉" }, { word: "milk", type: "noun", mean: "牛奶", u: true }, { word: "water", type: "noun", mean: "水", u: true },
+            { word: "book", type: "noun", mean: "書" }, { word: "pen", type: "noun", mean: "筆" }, { word: "bus", type: "noun", mean: "公車" }, { word: "car", type: "noun", mean: "車子" },
+            { word: "run", type: "verb", mean: "跑" }, { word: "jump", type: "verb", mean: "跳" }, { word: "swim", type: "verb", mean: "游泳" }, { word: "eat", type: "verb", mean: "吃" },
+            { word: "big", type: "adj", mean: "大的" }, { word: "small", type: "adj", mean: "小的" }, { word: "happy", type: "adj", mean: "快樂的" }, { word: "sad", type: "adj", mean: "難過的" }, { word: "red", type: "adj", mean: "紅色的" }, { word: "blue", type: "adj", mean: "藍色的" }
         ];
 
         const NUMBERS_1_10 = [{ word: "one", type: "number", mean: "一", isFocus: true }, { word: "two", type: "number", mean: "二", isFocus: true }, { word: "three", type: "number", mean: "三", isFocus: true }, { word: "four", type: "number", mean: "四", isFocus: true }, { word: "five", type: "number", mean: "五", isFocus: true }, { word: "six", type: "number", mean: "六", isFocus: true }, { word: "seven", type: "number", mean: "七", isFocus: true }, { word: "eight", type: "number", mean: "八", isFocus: true }, { word: "nine", type: "number", mean: "九", isFocus: true }, { word: "ten", type: "number", mean: "十", isFocus: true }];
@@ -120,14 +108,55 @@
 
         const ITEMS_DB = {
             princess: {
-                math: [{ id: 'pm1', icon: '🪄', type: 'weapon', effect: 'magic' }, { id: 'pm2', icon: '👑', type: 'head' }, { id: 'pm3', icon: '🧚‍♀️', type: 'pet' }, { id: 'pm4', icon: '🛡️', type: 'shield' }],
-                english: [{ id: 'pe1', icon: '🌟', type: 'weapon', effect: 'magic' }, { id: 'pe2', icon: '👒', type: 'head' }, { id: 'pe3', icon: '🦄', type: 'pet' }, { id: 'pe4', icon: '📖', type: 'shield' }]
+                math: [{ id: 'pm1', icon: '🪄', type: 'weapon', effect: 'magic' }, { id: 'pm2', icon: '👑', type: 'head' }, { id: 'pm3', icon: '🧚‍♀️', type: 'pet' }, { id: 'pm4', icon: '🛡️', type: 'shield' }, { id: 'pm_potion', icon: '🧪', type: 'skill_heal', name:'聖水' }],
+                english: [{ id: 'pe1', icon: '🌟', type: 'weapon', effect: 'magic' }, { id: 'pe2', icon: '👒', type: 'head' }, { id: 'pe3', icon: '🦄', type: 'pet' }, { id: 'pe4', icon: '📖', type: 'shield' }, { id: 'pe_time', icon: '⏳', type: 'skill_time', name:'懷錶' }]
             },
             hero: {
-                math: [{ id: 'hm1', icon: '⚔️', type: 'weapon', effect: 'slash' }, { id: 'hm2', icon: '⛑️', type: 'head' }, { id: 'hm3', icon: '🐲', type: 'pet' }, { id: 'hm4', icon: '🛡️', type: 'shield' }],
-                english: [{ id: 'he1', icon: '🗡️', type: 'weapon', effect: 'slash' }, { id: 'he2', icon: '🧢', type: 'head' }, { id: 'he3', icon: '🐺', type: 'pet' }, { id: 'he4', icon: '🛡️', type: 'shield' }]
+                math: [{ id: 'hm1', icon: '⚔️', type: 'weapon', effect: 'slash' }, { id: 'hm2', icon: '⛑️', type: 'head' }, { id: 'hm3', icon: '🐲', type: 'pet' }, { id: 'hm4', icon: '🛡️', type: 'shield' }, { id: 'hm_potion', icon: '🍖', type: 'skill_heal', name:'烤肉' }],
+                english: [{ id: 'he1', icon: '🗡️', type: 'weapon', effect: 'slash' }, { id: 'he2', icon: '🧢', type: 'head' }, { id: 'he3', icon: '🐺', type: 'pet' }, { id: 'he4', icon: '🛡️', type: 'shield' }, { id: 'he_time', icon: '⏰', type: 'skill_time', name:'鬧鐘' }]
             }
         };
+
+        const SCENARIOS = [
+            { text: "遭遇史萊姆！", emoji: "🟢" }, { text: "發現寶箱怪！", emoji: "📦" }, { text: "野狼擋路！", emoji: "🐺" }, { text: "蝙蝠來襲！", emoji: "🦇" }, { text: "守衛石像！", emoji: "🗿" }
+        ];
+
+        const getWeekId = () => {
+            const d = new Date();
+            const year = d.getFullYear();
+            const firstJan = new Date(year, 0, 1);
+            const week = Math.ceil((((d - firstJan) / 86400000) + firstJan.getDay() + 1) / 7);
+            return `${year}-W${week}`;
+        };
+
+        const INITIAL_STATS = {
+            daughter: { lastPlayedDate: '', lastWeekId: '', dailyMathLevel: 0, dailyEnglishLevel: 0, dailyScore: 0, allTimeBest: { score: 0, date: '-' }, earnedItems: [], stickerBook: [] },
+            son: { lastPlayedDate: '', lastWeekId: '', dailyMathLevel: 0, dailyEnglishLevel: 0, dailyScore: 0, allTimeBest: { score: 0, date: '-' }, earnedItems: [], stickerBook: [] },
+            mom: { lastPlayedDate: '', lastWeekId: '', dailyMathLevel: 0, dailyEnglishLevel: 0, dailyScore: 0, allTimeBest: { score: 0, date: '-' }, earnedItems: [], stickerBook: [] },
+            challenger: { lastPlayedDate: '', lastWeekId: '', dailyMathLevel: 0, dailyEnglishLevel: 0, dailyScore: 0, allTimeBest: { score: 0, date: '-' }, earnedItems: [], stickerBook: [] }
+        };
+
+        const INITIAL_MATH_SETTINGS = { daughter: { slots: [{ range: 10, weight: 5 }, { range: 20, weight: 3 }, { range: 50, weight: 2 }] }, son: { weights: { '2-digit-add-sub': 5, '3-digit-add-sub': 2, '1-digit-mult': 3, '2-digit-mult': 1, 'div-exact': 2, 'div-remain': 1 } }, challenger: { weights: { '2-digit-add-sub': 5, '3-digit-add-sub': 2, '1-digit-mult': 3, '2-digit-mult': 1, 'div-exact': 2, 'div-remain': 1 } } };
+        const CHARACTERS = { 
+            daughter: { id: 'daughter', name: '印品榕', avatar: '👧', needPwd: true, theme: 'princess' }, 
+            son: { id: 'son', name: '印晨希', avatar: '👦', needPwd: true, theme: 'hero' }, 
+            mom: { id: 'mom', name: '印媽媽', avatar: '👩', needPwd: true, theme: 'princess' }, 
+            challenger: { id: 'challenger', name: '挑戰者', subName: '(免密碼)', avatar: '🦸', needPwd: false, theme: 'hero' } 
+        };
+        const PARENT_PASSWORD = "28825252";
+        const FAMILY_PASSWORD = "168";
+
+        let audioCtx = null;
+        const initAudio = () => { if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)(); if (audioCtx.state === 'suspended') audioCtx.resume(); };
+        const playTone = (f, t, v=0.1) => { if(!audioCtx)return; const o=audioCtx.createOscillator(); const g=audioCtx.createGain(); o.frequency.value=f; o.type=t; g.gain.value=v; o.connect(g); g.connect(audioCtx.destination); o.start(); o.stop(audioCtx.currentTime+0.1); };
+        const playSFX = (t) => {
+            if (!audioCtx) return; 
+            if(t==='attack') { playTone(200,'square',0.3); setTimeout(()=>playTone(150,'square',0.3),100); }
+            else if(t==='win') { [440,554,659].forEach((f,i)=>setTimeout(()=>playTone(f,'sine',0.2),i*100)); }
+            else if(t==='hurt') { playTone(100,'sawtooth',0.4); setTimeout(()=>playTone(80,'sawtooth',0.4),100); }
+            else if(t==='boss') { playTone(80,'square',0.5); }
+        };
+        const speakWord = (text) => { if ('speechSynthesis' in window) { window.speechSynthesis.cancel(); const u = new SpeechSynthesisUtterance(text); u.lang = 'en-US'; u.rate = 0.9; window.speechSynthesis.speak(u); } };
 
         const getInitialVocab = (role) => {
             let list = [...BASE_VOCAB];
@@ -144,58 +173,6 @@
             return unique;
         };
 
-        const SCENARIOS = [
-            { text: "失火了！快幫忙滅火！", emoji: "🔥", type: "tense" }, { text: "有小偷！快抓住他！", emoji: "🦹", type: "tense" }, { text: "病人需要急救！", emoji: "🚑", type: "tense" }, { text: "外送訂單快遲到了！", emoji: "🛵", type: "happy" }, { text: "房間太亂了！", emoji: "🧹", type: "happy" }, { text: "肚子好餓喔！", emoji: "🍱", type: "happy" }, { text: "野生噴火龍出現！", emoji: "🐉", type: "battle" }, { text: "發現神秘寶箱！", emoji: "💎", type: "battle" }, { text: "最後一秒投籃！", emoji: "🏀", type: "tense" }, { text: "幫爸爸搥背！", emoji: "👨", type: "happy" }
-        ];
-
-        const getWeekId = () => {
-            const d = new Date();
-            const year = d.getFullYear();
-            const firstJan = new Date(year, 0, 1);
-            const week = Math.ceil((((d - firstJan) / 86400000) + firstJan.getDay() + 1) / 7);
-            return `${year}-W${week}`;
-        };
-
-        const INITIAL_STATS_TEMPLATE = { 
-            lastPlayedDate: '', lastWeekId: '', 
-            dailyMathLevel: 0, dailyEnglishLevel: 0, dailyScore: 0, 
-            allTimeBest: { score: 0, date: '-' }, weeklyHistory: [],
-            earnedItems: [] 
-        };
-        
-        const INITIAL_STATS = {
-            daughter: { ...INITIAL_STATS_TEMPLATE },
-            son: { ...INITIAL_STATS_TEMPLATE },
-            mom: { ...INITIAL_STATS_TEMPLATE },
-            challenger: { ...INITIAL_STATS_TEMPLATE }
-        };
-
-        const INITIAL_MATH_SETTINGS = { daughter: { slots: [{ range: 10, weight: 5 }, { range: 20, weight: 3 }, { range: 50, weight: 2 }] }, son: { weights: { '2-digit-add-sub': 5, '3-digit-add-sub': 2, '1-digit-mult': 3, '2-digit-mult': 1, 'div-exact': 2, 'div-remain': 1 } }, challenger: { weights: { '2-digit-add-sub': 5, '3-digit-add-sub': 2, '1-digit-mult': 3, '2-digit-mult': 1, 'div-exact': 2, 'div-remain': 1 } } };
-        const CHARACTERS = { 
-            daughter: { id: 'daughter', name: '印品榕', avatar: '👧', needPwd: true, theme: 'princess' }, 
-            son: { id: 'son', name: '印晨希', avatar: '👦', needPwd: true, theme: 'hero' }, 
-            mom: { id: 'mom', name: '印媽媽', avatar: '👩', needPwd: true, theme: 'princess' }, 
-            challenger: { id: 'challenger', name: '挑戰者', subName: '(免密碼)', avatar: '🦸', needPwd: false, theme: 'hero' } 
-        };
-        const PARENT_PASSWORD = "28825252";
-        const FAMILY_PASSWORD = "168";
-
-        // --- 音樂音效 ---
-        let audioCtx = null;
-        let musicInterval = null;
-        const initAudio = () => { if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)(); if (audioCtx.state === 'suspended') audioCtx.resume(); };
-        const playTone = (f, d, w = 'sine', v = 0.2) => { if (!audioCtx) return; const o = audioCtx.createOscillator(); const g = audioCtx.createGain(); o.type = w; o.frequency.setValueAtTime(f, audioCtx.currentTime); g.gain.setValueAtTime(v, audioCtx.currentTime); g.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + d); o.connect(g); g.connect(audioCtx.destination); o.start(); o.stop(audioCtx.currentTime + d); };
-        const stopMusic = () => { if (musicInterval) clearInterval(musicInterval); };
-        const playMusic = (style) => {
-            stopMusic(); if (!audioCtx) return;
-            let scale = [261, 329, 392, 523]; let tempo = 400; let wave = 'sine';
-            if (style === 'battle') { scale = [130, 155, 196, 261]; tempo = 200; wave = 'sawtooth'; }
-            else if (style === 'tense') { scale = [110, 116, 130]; tempo = 150; wave = 'square'; }
-            musicInterval = setInterval(() => { if (Math.random() > 0.4) playTone(scale[Math.floor(Math.random() * scale.length)], tempo / 1000, wave); }, tempo);
-        };
-        const playSFX = (t) => { if (!audioCtx) return; const n = audioCtx.currentTime; const o = audioCtx.createOscillator(); const g = audioCtx.createGain(); o.connect(g); g.connect(audioCtx.destination); if (t === 'attack') { o.frequency.setValueAtTime(200, n); o.frequency.linearRampToValueAtTime(800, n + 0.1); g.gain.setValueAtTime(0.4, n); o.start(); o.stop(n + 0.1); } else if (t === 'win') { [0, 0.1, 0.2].forEach((s, i) => { const o2 = audioCtx.createOscillator(); const g2 = audioCtx.createGain(); o2.connect(g2); g2.connect(audioCtx.destination); o2.frequency.setValueAtTime(440 + i * 110, n + s); g2.gain.setValueAtTime(0.3, n + s); o2.start(n + s); o2.stop(n + s + 0.3); }); } else if (t === 'hurt') { o.type = 'sawtooth'; o.frequency.setValueAtTime(150, n); o.frequency.linearRampToValueAtTime(50, n + 0.3); g.gain.setValueAtTime(0.4, n); g.gain.linearRampToValueAtTime(0, n + 0.3); o.start(n); o.stop(n + 0.3); } else if (t === 'item') { [0,0.1,0.2].forEach((s,i)=>{const o2=audioCtx.createOscillator();const g2=audioCtx.createGain();o2.type='sine';o2.frequency.setValueAtTime(800+i*200,n+s);g2.gain.setValueAtTime(0.3,n+s);o2.connect(g2);g2.connect(audioCtx.destination);o2.start(n+s);o2.stop(n+s+0.2)}); } };
-        const speakWord = (text) => { if ('speechSynthesis' in window) { window.speechSynthesis.cancel(); const u = new SpeechSynthesisUtterance(text); u.lang = 'en-US'; u.rate = 0.9; window.speechSynthesis.speak(u); } };
-
         // --- 全身角色組件 ---
         const FullBodyChar = ({ charId, items, isAnimating }) => {
             const char = CHARACTERS[charId];
@@ -208,7 +185,7 @@
             const pet = myGear.find(i => i.type === 'pet');
 
             return (
-                <div className={`char-container transition-transform duration-300 ${isAnimating === 'attack' ? 'translate-x-10' : ''} ${isAnimating === 'hurt' ? 'animate-shake' : 'animate-bounce-slow'}`}>
+                <div className={`char-container transition-transform duration-200 ${isAnimating === 'attack' ? 'translate-x-10' : ''} ${isAnimating === 'hurt' ? 'animate-shake' : ''}`}>
                     {hat && <div className="slot-hat">{hat.icon}</div>}
                     <div className="char-head">{char.avatar}</div>
                     <div className={`char-body ${theme}`}>
@@ -224,12 +201,6 @@
             );
         };
 
-        const LucideIcon = ({ name, className, ...props }) => {
-            const [IconComp, setIconComp] = useState(null);
-            useEffect(() => { if (window.lucide && window.lucide.icons) { const camelName = name.replace(/-([a-z])/g, g => g[1].toUpperCase()); const PascalName = camelName.charAt(0).toUpperCase() + camelName.slice(1); setIconComp(window.lucide.icons[PascalName]); } }, [name]);
-            return IconComp ? <IconComp className={className} {...props} /> : <span className={className}>?</span>;
-        };
-
         function App() {
             const [screen, setScreen] = useState('menu');
             const [playerKey, setPlayerKey] = useState('daughter');
@@ -239,257 +210,238 @@
             const [vocabMap, setVocabMap] = useState({ daughter: getInitialVocab('daughter'), son: getInitialVocab('son'), mom: getInitialVocab('mom'), challenger: getInitialVocab('challenger') });
             const [mathSettings, setMathSettings] = useState(INITIAL_MATH_SETTINGS);
             const [rewards, setRewards] = useState({ levelRewards: {}, dailyScore: Array(5).fill({score:0, reward:""}) });
-            const [audioStarted, setAudioStarted] = useState(false);
+            const [raidData, setRaidData] = useState({ hp: 10000, maxHp: 10000 });
             
+            // Game State
             const [dailyLevel, setDailyLevel] = useState(1);
             const [timer, setTimer] = useState(0);
-            const [maxTime, setMaxTime] = useState(30);
             const [score, setScore] = useState(0);
             const [playerHp, setPlayerHp] = useState(100);
-            const [hp, setHp] = useState(100);
             const [question, setQuestion] = useState(null);
             const [userAnswer, setUserAnswer] = useState('');
             const [feedback, setFeedback] = useState(null);
             const [inputMode, setInputMode] = useState('select');
             const [scenario, setScenario] = useState(SCENARIOS[0]);
             const [animState, setAnimState] = useState('idle');
-            const [effectText, setEffectText] = useState(null);
+            const [combo, setCombo] = useState(0);
+            const [fever, setFever] = useState(false);
             const [newItem, setNewItem] = useState(null);
-            const [userObj, setUserObj] = useState(null); 
+            const [userObj, setUserObj] = useState(null);
+            const [skillUsed, setSkillUsed] = useState({ heal: false, time: false });
 
             const gameRuleKeyRef = useRef('daughter');
             const timerRef = useRef(null);
 
-            // --- 雲端整合 ---
+            // --- 雲端 & 讀取 ---
             useEffect(() => {
-                if (window.auth) {
-                    const unsubscribe = window.auth.onAuthStateChanged(async (u) => {
-                        setUserObj(u);
-                        if (u) {
-                            const docRef = window.doc(window.db, "users", u.uid);
-                            const docSnap = await window.getDoc(docRef);
-                            if (docSnap.exists()) {
-                                const data = docSnap.data();
-                                setStats(data.stats || INITIAL_STATS);
-                                setVocabMap(data.vocabMap || vocabMap);
-                                setMathSettings(data.mathSettings || INITIAL_MATH_SETTINGS);
-                                setRewards(data.rewards || rewards);
-                            } else {
-                                saveToCloud(u);
-                            }
-                        }
-                    });
-                    return () => unsubscribe();
-                }
-            }, []);
-
-            const saveAll = (newStats, newVocab, newMath, newRewards) => {
-                if(newStats) setStats(newStats);
-                if(newVocab) setVocabMap(newVocab);
-                if(newMath) setMathSettings(newMath);
-                if(newRewards) setRewards(newRewards);
-                const dataToSave = { stats: newStats || stats, vocabMap: newVocab || vocabMap, mathSettings: newMath || mathSettings, rewards: newRewards || rewards };
-                localStorage.setItem('fh_v7_final', JSON.stringify(dataToSave));
-                if (userObj) saveToCloud(userObj, dataToSave);
-            };
-
-            const saveToCloud = async (u, data) => {
-                if (!window.db) return;
-                const d = data || { stats, vocabMap, mathSettings, rewards };
-                try { await window.setDoc(window.doc(window.db, "users", u.uid), d); } catch (e) { console.error("Cloud save failed", e); }
-            };
-
-            const handleLogin = async () => { if (!window.auth) return; try { await window.signInWithPopup(window.auth, window.provider); } catch (e) { alert("登入失敗"); } };
-            const handleLogout = async () => { if (!window.auth) return; await window.signOut(window.auth); setUserObj(null); };
-
-            useEffect(() => {
-                const saved = JSON.parse(localStorage.getItem('fh_v7_final'));
-                if (saved) {
-                    const currentWeek = getWeekId();
-                    const today = new Date().toISOString().split('T')[0];
+                const saved = JSON.parse(localStorage.getItem('fh_v8_ultimate'));
+                const currentWeek = getWeekId();
+                if (saved) { 
                     const loadedStats = { ...INITIAL_STATS, ...saved.stats };
                     Object.keys(loadedStats).forEach(k => {
                         if (loadedStats[k].lastWeekId !== currentWeek) { loadedStats[k].earnedItems = []; loadedStats[k].lastWeekId = currentWeek; }
-                        if (loadedStats[k].lastPlayedDate !== today) { loadedStats[k].dailyScore = 0; loadedStats[k].lastPlayedDate = today; }
                     });
-                    saveAll(loadedStats, { ...vocabMap, ...saved.vocabMap }, { ...INITIAL_MATH_SETTINGS, ...saved.mathSettings }, saved.rewards);
+                    setStats(loadedStats); 
+                    setVocabMap({ ...vocabMap, ...saved.vocabMap });
+                    setMathSettings({ ...INITIAL_MATH_SETTINGS, ...saved.mathSettings });
+                    setRewards(saved.rewards); 
+                }
+                
+                // Raid Boss Listener
+                if (window.db) {
+                    const unsub = window.onSnapshot(window.doc(window.db, "system", "raidBoss"), (doc) => {
+                        if (doc.exists()) setRaidData(doc.data());
+                        else window.setDoc(window.doc(window.db, "system", "raidBoss"), { hp: 10000, maxHp: 10000 });
+                    });
+                    const authUnsub = window.onAuthStateChanged(window.auth, (u) => {
+                        setUserObj(u);
+                        if(u && saved) saveToCloud(u); // Sync on login
+                    });
+                    return () => { unsub(); authUnsub(); };
                 }
             }, []);
 
-            const pickWeighted = (options) => { let total = options.reduce((a,c)=>a+c.weight,0); let r = Math.random()*total; for(let o of options){ if(r<o.weight)return o.item; r-=o.weight; } return options[0].item; };
+            useEffect(() => { 
+                localStorage.setItem('fh_v8_ultimate', JSON.stringify({ stats, vocabMap, mathSettings, rewards })); 
+            }, [stats, vocabMap, mathSettings, rewards]);
+
+            const saveToCloud = async (u) => {
+                if (!window.db) return;
+                try { await window.setDoc(window.doc(window.db, "users", u.uid), { stats, vocabMap, mathSettings, rewards }); } catch (e) {}
+            };
+
+            const handleRaidDamage = async (dmg) => {
+                if (window.db) {
+                    await window.updateDoc(window.doc(window.db, "system", "raidBoss"), { hp: window.increment(-dmg) });
+                }
+            };
+
+            const pickWeighted = (opts) => { let total = opts.reduce((a,c)=>a+c.weight,0); let r = Math.random()*total; for(let o of opts){ if(r<o.weight)return o.item; r-=o.weight; } return opts[0].item; };
             
-            const generateMathQuestion = (targetRole) => {
-                const roleSettings = (targetRole === 'challenger') ? 'son' : targetRole;
-                if (roleSettings === 'daughter') {
+            const generateMathQuestion = (role) => {
+                const sRole = role === 'challenger' ? 'son' : role;
+                if (sRole === 'daughter') {
                     const range = pickWeighted(mathSettings.daughter.slots.map(s => ({ item: s.range, weight: s.weight })));
                     const n1 = Math.floor(Math.random()*range)+1; const n2 = Math.floor(Math.random()*range)+1;
                     const op = Math.random()>0.5?'+':'-';
                     return op==='+' ? {text:`${n1}+${n2}=?`, answer:(n1+n2).toString(), time:30} : {text:`${Math.max(n1,n2)}-${Math.min(n1,n2)}=?`, answer:(Math.max(n1,n2)-Math.min(n1,n2)).toString(), time:30};
                 } else {
-                    const settings = mathSettings[roleSettings] || mathSettings.son;
-                    const mode = pickWeighted(Object.keys(settings.weights).map(k => ({ item: k, weight: settings.weights[k] })));
-                    if (mode.includes('mult')) { const n1=Math.floor(Math.random()*9)+1; const n2=Math.floor(Math.random()*9)+1; return {text:`${n1}x${n2}=?`, answer:(n1*n2).toString(), time:60}; }
-                    else if (mode.includes('div')) { const n2=Math.floor(Math.random()*8)+2; const ans=Math.floor(Math.random()*9)+1; const r=mode==='div-remain'?Math.floor(Math.random()*(n2-1))+1:0; return {text:`${n2*ans+r}÷${n2}=?`, answer:mode==='div-remain'?`${ans}r${r}`:ans.toString(), time:90, isRemain:mode==='div-remain'}; }
+                    const settings = mathSettings[sRole] || mathSettings.son;
+                    const mode = pickWeighted(Object.keys(settings.weights).map(k=>({item:k, weight:settings.weights[k]})));
+                    if(mode.includes('mult')) { const n1=Math.floor(Math.random()*9)+1; const n2=Math.floor(Math.random()*9)+1; return {text:`${n1}x${n2}=?`, answer:(n1*n2).toString(), time:60}; }
                     else { const n1=Math.floor(Math.random()*50)+10; const n2=Math.floor(Math.random()*50)+10; return {text:`${n1}+${n2}=?`, answer:(n1+n2).toString(), time:60}; }
                 }
             };
 
-            const generateEnglishQuestion = (targetRole) => {
-                const pool = vocabMap[targetRole] || BASE_VOCAB;
-                const weightedPool = [];
-                pool.forEach(w => { weightedPool.push(w); if (w.isFocus) { weightedPool.push(w); weightedPool.push(w); } });
-                const wordObj = weightedPool[Math.floor(Math.random()*weightedPool.length)];
-                const templates = SENTENCE_TEMPLATES[wordObj.type] || SENTENCE_TEMPLATES.noun;
-                const template = templates[Math.floor(Math.random()*templates.length)];
-                let finalText = template.text;
-                if (finalText.includes("a ___")) {
-                    if (wordObj.u) finalText = finalText.replace("a ___", "some ___"); 
-                    else if (wordObj.unique) finalText = finalText.replace("a ___", "the ___"); 
-                    else if (['a','e','i','o','u'].includes(wordObj.word[0].toLowerCase())) finalText = finalText.replace("a ___", "an ___"); 
-                }
-                const fullSentence = finalText.replace('___', wordObj.word);
-                const distractors = pool.filter(w=>w.word!==wordObj.word).sort(()=>0.5-Math.random()).slice(0,3).map(w=>w.word);
-                return { text:finalText, fullSentence:fullSentence, answer:wordObj.word, display:finalText.replace('___','_____'), hint:`${wordObj.mean} (${template.hint})`, options:[wordObj.word,...distractors].sort(()=>0.5-Math.random()), time:30, wordObj:wordObj };
+            const generateEnglishQuestion = (role) => {
+                const pool = vocabMap[role] || BASE_VOCAB;
+                const w = pool[Math.floor(Math.random()*pool.length)];
+                const tmpl = SENTENCE_TEMPLATES[w.type] ? SENTENCE_TEMPLATES[w.type][0] : SENTENCE_TEMPLATES.noun[0];
+                const txt = tmpl.text.replace('___', '_____');
+                const full = tmpl.text.replace('___', w.word);
+                const opts = pool.filter(v=>v.word!==w.word).sort(()=>0.5-Math.random()).slice(0,3).map(v=>v.word);
+                return { text:txt, fullSentence:full, answer:w.word, options:[w.word,...opts].sort(()=>0.5-Math.random()), time:30, wordObj:w, hint:w.mean };
             };
-
-            const handleCharSelect = (id) => setPlayerKey(id);
 
             const handleStart = (mode) => {
                 if (CHARACTERS[playerKey].needPwd) {
-                    const pwd = prompt("請輸入家人密碼 (168)：");
-                    if (pwd !== FAMILY_PASSWORD) { alert("密碼錯誤"); return; }
+                    if (prompt("請輸入家人密碼 (168)：") !== FAMILY_PASSWORD) { alert("密碼錯誤"); return; }
                 }
                 initAudio();
-                const ruleKey = (playerKey === 'mom' || playerKey === 'challenger') ? momMode : playerKey;
-                gameRuleKeyRef.current = ruleKey;
-                setGameMode(mode); setPlayerHp(100); setHp(100); setScore(stats[playerKey].dailyScore);
+                const rule = (playerKey==='mom'||playerKey==='challenger') ? momMode : playerKey;
+                gameRuleKeyRef.current = rule;
+                setGameMode(mode); setPlayerHp(100); setScore(stats[playerKey].dailyScore); setCombo(0); setFever(false); setSkillUsed({heal:false, time:false});
                 const myLv = mode === 'daily_math' ? stats[playerKey].dailyMathLevel : stats[playerKey].dailyEnglishLevel;
-                const otherLv = mode === 'daily_math' ? stats[playerKey].dailyEnglishLevel : stats[playerKey].dailyMathLevel;
-                if (myLv > 0 && myLv % 20 === 0 && otherLv < myLv) { alert(`🚧 階段性挑戰！请先追平進度！`); return; }
                 const startLv = Math.floor(myLv / 10) * 10 + 1;
                 setDailyLevel(startLv); nextTurn(mode); setScreen('game');
             };
 
             const nextTurn = (mode) => {
                 setAnimState('idle'); setUserAnswer(''); setFeedback(null);
-                const q = mode.includes('math') ? generateMathQuestion(gameRuleKeyRef.current) : generateEnglishQuestion(gameRuleKeyRef.current);
-                setQuestion(q); setTimer(q.time); setMaxTime(q.time); setScenario(SCENARIOS[Math.floor(Math.random()*SCENARIOS.length)]);
-                if(mode.includes('english')) setTimeout(()=>speakWord(q.fullSentence),500);
-                if(timerRef.current) clearInterval(timerRef.current);
-                timerRef.current = setInterval(()=>setTimer(t=>t>0?t-1:0), 1000);
-            };
+                const lv = dailyLevel;
+                // Boss Check
+                const isBoss = lv > 0 && lv % 10 === 0;
+                // Biome Check
+                let bgClass = 'bg-forest';
+                if(lv > 30) bgClass = 'bg-volcano'; else if(lv > 20) bgClass = 'bg-ice'; else if(lv > 10) bgClass = 'bg-desert';
+                document.body.className = `no-select ${bgClass}`;
 
-            const checkItemDrop = () => {
-                if (dailyLevel > 0 && dailyLevel % 10 === 0) {
-                    const theme = CHARACTERS[playerKey].theme;
-                    const type = gameMode.includes('math') ? 'math' : 'english';
-                    const pool = ITEMS_DB[theme][type];
-                    const earned = stats[playerKey].earnedItems;
-                    const avail = pool.filter(i => !earned.includes(i.id));
-                    if (avail.length > 0) {
-                        const drop = avail[Math.floor(Math.random()*avail.length)];
-                        const newStats = {...stats}; newStats[playerKey].earnedItems.push(drop.id);
-                        saveAll(newStats); 
-                        setNewItem(drop); playSFX('item'); setTimeout(() => setNewItem(null), 3000);
-                    }
-                }
+                // Listening Mode check (Level ends with 5)
+                const isListening = lv % 10 === 5 && mode.includes('english');
+
+                const q = mode.includes('math') ? generateMathQuestion(gameRuleKeyRef.current) : generateEnglishQuestion(gameRuleKeyRef.current);
+                setQuestion({ ...q, isListening, isBoss });
+                setTimer(q.time); setScenario(isBoss ? {text:"BOSS降臨!", emoji:"👹"} : SCENARIOS[Math.floor(Math.random()*SCENARIOS.length)]);
+                
+                if (mode.includes('english')) setTimeout(()=>speakWord(q.fullSentence), 500);
+                if (timerRef.current) clearInterval(timerRef.current);
+                timerRef.current = setInterval(()=>setTimer(t=>t>0?t-1:0), 1000);
             };
 
             const handleAnswer = (val) => {
                 clearInterval(timerRef.current);
-                const target = question.answer.toLowerCase();
-                const input = val.trim().toLowerCase();
-                let isCorrect = question.isRemain ? input.replace(/[\.\s]+/g, 'r') === target : input === target;
-                if (isCorrect) { 
-                    playSFX('attack'); setAnimState('attack'); setEffectText("💥 POW!");
-                    setScore(s=>s+timer*10); setFeedback('correct'); 
-                    if(question.wordObj) speakWord(question.fullSentence); 
-                } else { 
-                    playSFX('hurt'); setAnimState('hurt'); setEffectText("😵 OUCH!");
-                    setPlayerHp(h=>h-34); setFeedback('wrong'); 
+                const isCorrect = val.toString().toLowerCase().trim() === question.answer.toString().toLowerCase();
+                
+                if (isCorrect) {
+                    const newCombo = combo + 1;
+                    setCombo(newCombo);
+                    const isFever = newCombo >= 3;
+                    setFever(isFever);
+                    
+                    const dmg = isFever ? 200 : 100; // Raid Damage
+                    handleRaidDamage(dmg);
+                    
+                    setAnimState('attack'); playSFX('attack'); setFeedback('correct'); 
+                    setScore(s => s + timer * 10 * (isFever ? 2 : 1));
+                    if(question.wordObj) speakWord(question.fullSentence);
+                } else {
+                    setCombo(0); setFever(false);
+                    setAnimState('hurt'); playSFX('hurt'); setFeedback('wrong'); setPlayerHp(h=>h-(gameMode.startsWith('daily')?34:20));
                 }
+
                 setTimeout(() => {
-                    if (playerHp <= (isCorrect?0:34)) { setAnimState('dead'); playSFX('lose'); setTimeout(()=>setScreen('result'), 1000); }
+                    if (playerHp <= (isCorrect?0:34)) setScreen('result');
                     else if (isCorrect) {
-                        if (dailyLevel%10===0) { 
-                            checkItemDrop(); setAnimState('victory'); playSFX('win');
-                            const newStats = {...stats};
-                            if (gameMode.includes('math')) newStats[playerKey].dailyMathLevel = dailyLevel;
-                            else newStats[playerKey].dailyEnglishLevel = dailyLevel;
-                            saveAll(newStats); 
-                            setTimeout(()=>setScreen('result'), 2000);
-                        } else { setDailyLevel(l=>l+1); nextTurn(gameMode); }
+                        if (dailyLevel % 10 === 0) { 
+                            // Item Drop
+                            const theme = CHARACTERS[playerKey].theme;
+                            const type = gameMode.includes('math') ? 'math' : 'english';
+                            const pool = ITEMS_DB[theme][type];
+                            const earned = stats[playerKey].earnedItems;
+                            const avail = pool.filter(i => !earned.includes(i.id));
+                            let drop = null;
+                            if (avail.length > 0) {
+                                drop = avail[Math.floor(Math.random()*avail.length)];
+                                const newStats = {...stats}; 
+                                newStats[playerKey].earnedItems.push(drop.id);
+                                if (!newStats[playerKey].stickerBook.includes(drop.id)) newStats[playerKey].stickerBook.push(drop.id); // Add to Sticker Book
+                                if (gameMode.includes('math')) newStats[playerKey].dailyMathLevel = dailyLevel;
+                                else newStats[playerKey].dailyEnglishLevel = dailyLevel;
+                                setStats(newStats); 
+                                localStorage.setItem('fh_v8_ultimate', JSON.stringify({ stats: newStats, vocabMap, mathSettings, rewards }));
+                                if (userObj) saveToCloud(userObj);
+                            }
+                            setNewItem(drop);
+                            setScreen('result'); playSFX('win');
+                        }
+                        else { setDailyLevel(l=>l+1); nextTurn(gameMode); }
                     } else nextTurn(gameMode);
                 }, 1500);
             };
 
-            const enterSettings = () => { const p = prompt("請輸入管理員密碼："); if (p === PARENT_PASSWORD) setScreen('settings'); else alert("密碼錯誤"); };
-
-            const ItemDisplay = ({ items }) => {
-                if (!items || items.length === 0) return null;
-                const allItems = [...ITEMS_DB.princess.math, ...ITEMS_DB.princess.english, ...ITEMS_DB.hero.math, ...ITEMS_DB.hero.english];
-                const myGear = allItems.filter(i => items.includes(i.id));
-                return ( <>{myGear.map(i => {
-                    let c = ''; if(i.type==='weapon')c='item-slot-weapon'; else if(i.type==='head')c='item-slot-head'; else if(i.type==='pet')c='item-slot-pet'; else c='item-slot-shield';
-                    return <div key={i.id} className={c} style={i.type==='pet'?{left:`-${Math.random()*20+30}px`}:{}}>{i.icon}</div>
-                })}</> );
-            };
-
-            const VocabSettings = ({ charKey }) => {
-                const [input, setInput] = useState({ word: '', mean: '', type: 'noun' });
-                const list = vocabMap[charKey] || [];
-                const add = () => { if(!input.word) return; const newItem = { ...input, isFocus: false }; const newList = [...list, newItem]; setVocabMap({ ...vocabMap, [charKey]: newList }); setInput({ word: '', mean: '', type: 'noun' }); };
-                const remove = (idx) => { const newList = [...list]; newList.splice(idx, 1); setVocabMap({ ...vocabMap, [charKey]: newList }); };
-                const toggleFocus = (idx) => { const newList = [...list]; newList[idx] = { ...newList[idx], isFocus: !newList[idx].isFocus }; setVocabMap({ ...vocabMap, [charKey]: newList }); };
-                return (
-                    <div className="bg-white/5 p-4 rounded-xl mt-4">
-                        <div className="flex gap-2 mb-2">
-                            <input value={input.word} onChange={e=>setInput({...input, word:e.target.value})} placeholder="英文" className="w-1/3 bg-black/40 p-2 rounded text-sm"/>
-                            <input value={input.mean} onChange={e=>setInput({...input, mean:e.target.value})} placeholder="中文" className="w-1/3 bg-black/40 p-2 rounded text-sm"/>
-                            <select value={input.type} onChange={e=>setInput({...input, type:e.target.value})} className="bg-black/40 p-2 rounded text-sm"><option value="noun">名詞</option><option value="verb">動詞</option><option value="adj">形容詞</option><option value="number">數字</option></select>
-                            <button onClick={add} className="bg-green-600 px-3 rounded"><LucideIcon name="plus" size={16}/></button>
-                        </div>
-                        <div className="max-h-60 overflow-y-auto space-y-2">
-                            {list.map((v, i) => (
-                                <div key={i} className={`flex justify-between items-center p-2 rounded ${v.isFocus ? 'bg-yellow-500/20 border border-yellow-500/50' : 'bg-black/30'}`}>
-                                    <div className="flex items-center gap-2"><button onClick={()=>toggleFocus(i)} className={`text-xl ${v.isFocus ? 'opacity-100' : 'opacity-30 grayscale'}`}>⭐</button><span className="font-bold text-blue-300">{v.word}</span><span className="text-xs text-gray-400">{v.mean}</span></div>
-                                    <button onClick={()=>remove(i)} className="text-gray-500 hover:text-red-500"><LucideIcon name="trash-2" size={16}/></button>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-                );
-            };
-
-            const MathSettings = ({ charKey }) => {
-                const isDaughter = charKey === 'daughter';
-                const settings = mathSettings[charKey] || (isDaughter ? INITIAL_MATH_SETTINGS.daughter : INITIAL_MATH_SETTINGS.son);
-                const updateSlot = (idx, field, val) => { const newS = { ...mathSettings }; newS.daughter.slots[idx][field] = parseInt(val) || 0; setMathSettings(newS); };
-                const updateWeight = (key, val) => { const newS = { ...mathSettings }; if (!newS[charKey]) newS[charKey] = { weights: { ...INITIAL_MATH_SETTINGS.son.weights } }; newS[charKey].weights[key] = parseInt(val) || 0; setMathSettings(newS); };
-                if (isDaughter) {
-                    return (<div className="bg-white/5 p-4 rounded-xl mt-4 space-y-2">{settings.slots.map((s, i) => (<div key={i} className="flex items-center gap-2 bg-black/20 p-2 rounded"><span className="text-gray-400 font-bold">#{i+1}</span><input type="number" value={s.range} onChange={e=>updateSlot(i,'range',e.target.value)} className="w-16 bg-black/40 text-center rounded p-1"/><span className="text-xs">以內</span><input type="range" max="10" value={s.weight} onChange={e=>updateSlot(i,'weight',e.target.value)} className="flex-1"/><span className="w-4 text-center text-pink-400 font-bold">{s.weight}</span></div>))}</div>);
-                } else {
-                    const weights = settings.weights || INITIAL_MATH_SETTINGS.son.weights;
-                    const labels = { '2-digit-add-sub': '2位數加減', '3-digit-add-sub': '3位數加減', '1-digit-mult': '2位x1位乘', '2-digit-mult': '2位x2位乘', 'div-exact': '整除', 'div-remain': '餘數' };
-                    return (<div className="bg-white/5 p-4 rounded-xl mt-4 grid grid-cols-1 gap-2">{Object.keys(weights).map(k => (<div key={k} className="flex items-center justify-between bg-black/20 p-2 rounded"><span className="text-xs text-gray-300">{labels[k]}</span><div className="flex items-center gap-2 w-32"><input type="range" max="10" value={weights[k]} onChange={e=>updateWeight(k,e.target.value)} className="flex-1"/><span className="w-4 text-center text-blue-400 font-bold">{weights[k]}</span></div></div>))}</div>);
+            const useSkill = (type) => {
+                if (type === 'heal' && !skillUsed.heal) {
+                    setPlayerHp(h => Math.min(100, h + 30)); setSkillUsed({...skillUsed, heal:true}); playSFX('item');
+                } else if (type === 'time' && !skillUsed.time) {
+                    clearInterval(timerRef.current); setSkillUsed({...skillUsed, time:true}); playSFX('item');
+                    setTimeout(() => { timerRef.current = setInterval(()=>setTimer(t=>t>0?t-1:0), 1000); }, 5000);
                 }
             };
 
-            const [settingTab, setSettingTab] = useState('vocab');
-            const [settingChar, setSettingChar] = useState('daughter');
+            // Check if player has skill items
+            const myItems = stats[playerKey].earnedItems || [];
+            const allItems = [...ITEMS_DB.princess.math, ...ITEMS_DB.princess.english, ...ITEMS_DB.hero.math, ...ITEMS_DB.hero.english];
+            const hasHeal = allItems.some(i => myItems.includes(i.id) && i.type === 'skill_heal');
+            const hasTime = allItems.some(i => myItems.includes(i.id) && i.type === 'skill_time');
+
+            // UI
+            const StickerBook = () => (
+                <div className="h-full bg-slate-900 p-6 overflow-y-auto">
+                    <div className="flex justify-between mb-4 text-white"><h2 className="text-2xl font-bold">📚 永久圖鑑</h2><button onClick={()=>setScreen('menu')} className="bg-gray-700 px-4 rounded">返回</button></div>
+                    <div className="grid grid-cols-4 gap-4">
+                        {allItems.map(item => {
+                            const owned = stats[playerKey].stickerBook && stats[playerKey].stickerBook.includes(item.id);
+                            return (
+                                <div key={item.id} className={`p-2 rounded-xl text-center border-2 ${owned ? 'bg-white/20 border-yellow-400' : 'bg-black/40 border-gray-700 opacity-50 grayscale'}`}>
+                                    <div className="text-4xl mb-1">{item.icon}</div>
+                                    <div className="text-xs text-white">{owned ? item.name : '???'}</div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                </div>
+            );
 
             return (
-                <div className={`w-full h-screen flex flex-col overflow-hidden relative ${timer < 5 && screen === 'game' ? 'bg-red-900/50' : 'bg-indigo-900'} transition-colors duration-500`}>
-                    {newItem && (<div className="absolute inset-0 z-50 flex items-center justify-center bg-black/80 animate-pop"><div className="bg-gradient-to-b from-yellow-400 to-orange-500 p-8 rounded-3xl text-center border-4 border-white shadow-2xl"><h3 className="text-2xl font-black text-white mb-4">🎉 獲得新寶物！</h3><div className="text-8xl mb-4 animate-bounce">{newItem.icon}</div><div className="text-3xl font-bold text-black">{newItem.name}</div><div className="text-sm text-white mt-2 font-bold opacity-80">每週重置，趕快收集！</div></div></div>)}
-
-                    {screen === 'menu' && !audioStarted && (<div className="absolute inset-0 z-50 bg-black/90 flex items-center justify-center cursor-pointer" onClick={()=>{initAudio(); setAudioStarted(true); playMusic('menu');}}><div className="text-center animate-pulse"><div className="text-6xl mb-4">🎵</div><h2 className="text-2xl font-bold text-white">點擊畫面開始遊戲</h2><p className="text-gray-400 text-sm mt-2">開啟音效與背景音樂</p></div></div>)}
+                <div className={`w-full h-screen flex flex-col overflow-hidden relative transition-all duration-1000 ${fever ? 'fever-mode' : ''}`}>
+                    {newItem && (<div className="absolute inset-0 z-50 flex items-center justify-center bg-black/80 animate-pop"><div className="bg-gradient-to-b from-yellow-400 to-orange-500 p-8 rounded-3xl text-center border-4 border-white shadow-2xl"><h3 className="text-2xl font-black text-white mb-4">🎉 獲得寶物！</h3><div className="text-8xl mb-4 animate-bounce">{newItem.icon}</div><div className="text-3xl font-bold text-black">{newItem.name}</div><div className="text-sm text-white mt-2 font-bold opacity-80">已加入圖鑑</div></div></div>)}
 
                     {screen === 'menu' && (
-                        <div className="p-4 flex flex-col items-center justify-center h-full relative z-10">
-                            <h1 className="text-4xl font-black text-yellow-400 mb-6 drop-shadow-lg">⚔️ 印家英雄榜 ⚔️</h1>
+                        <div className="p-4 flex flex-col items-center justify-center h-full relative z-10 bg-indigo-900 text-white">
+                            <h1 className="text-4xl font-black text-yellow-400 mb-6 drop-shadow-lg">⚔️ 印家英雄榜</h1>
+                            
+                            {/* Raid Boss Banner */}
+                            <div className="w-full max-w-lg bg-red-900/80 p-3 rounded-xl mb-4 border-2 border-red-500 flex items-center gap-3">
+                                <div className="text-4xl animate-bounce">🐲</div>
+                                <div className="flex-1">
+                                    <div className="text-xs text-red-200 font-bold uppercase flex justify-between"><span>世界惡龍討伐</span><span>{Math.max(0, raidData.hp)}/{raidData.maxHp}</span></div>
+                                    <div className="h-3 w-full bg-black rounded-full overflow-hidden mt-1"><div className="h-full bg-red-500 transition-all duration-500" style={{width: `${(raidData.hp/raidData.maxHp)*100}%`}}></div></div>
+                                </div>
+                            </div>
+
                             <div className="grid grid-cols-4 gap-2 mb-6 bg-black/20 p-2 rounded-xl w-full max-w-lg">
                                 {Object.values(CHARACTERS).map(c => (
-                                    <button key={c.id} onClick={() => handleCharSelect(c.id)} className={`flex flex-col items-center justify-center py-2 rounded-lg transition-all ${playerKey === c.id ? 'bg-yellow-500 text-black scale-105 shadow-lg' : 'text-gray-400 hover:bg-white/10'}`}>
+                                    <button key={c.id} onClick={() => setPlayerKey(c.id)} className={`flex flex-col items-center justify-center py-2 rounded-lg transition-all ${playerKey === c.id ? 'bg-yellow-500 text-black scale-105 shadow-lg' : 'text-gray-400 hover:bg-white/10'}`}>
                                         <span className="text-2xl mb-1">{c.avatar}</span><span className="text-xs font-bold">{c.name}</span>{c.subName && <span className="text-[9px] block text-green-300">{c.subName}</span>}
                                     </button>
                                 ))}
@@ -509,41 +461,64 @@
                                     <button onClick={()=>handleStart('daily_english')} className="bg-blue-500 p-4 rounded-xl font-bold flex flex-col items-center shadow-lg active:scale-95"><div className="text-2xl mb-1">🗣️</div>挑戰英文<div className="text-xs opacity-70 bg-black/20 px-2 rounded mt-1">Lv.{stats[playerKey].dailyEnglishLevel}</div></button>
                                 </div>
                             </div>
-                            <div className="flex gap-6 text-sm font-bold text-gray-400">
-                                <button onClick={() => setScreen('vocab')} className="flex items-center gap-1 hover:text-white bg-white/5 px-4 py-2 rounded-full"><LucideIcon name="book-open"/> 單字本</button>
-                                <button onClick={enterSettings} className="flex items-center gap-1 hover:text-white bg-white/5 px-4 py-2 rounded-full"><LucideIcon name="settings-2"/> 管理中心</button>
+                            <div className="flex gap-4 text-sm text-gray-400">
+                                <button onClick={() => setScreen('sticker')} className="bg-white/5 px-3 py-1 rounded">📒 圖鑑</button>
+                                <button onClick={() => {if(prompt("密碼?")===PARENT_PASSWORD) setScreen('settings')}} className="bg-white/5 px-3 py-1 rounded">⚙️ 管理</button>
                             </div>
                         </div>
                     )}
 
-                    {screen === 'settings' && (
-                        <div className="h-full p-6 bg-slate-900 overflow-y-auto">
-                            <div className="flex justify-between items-center mb-6 border-b border-gray-700 pb-4"><h2 className="text-2xl font-bold text-yellow-400 flex items-center gap-2">⚙️ 家長管理中心</h2><button onClick={() => setScreen('menu')} className="bg-gray-700 px-4 py-2 rounded-lg text-sm font-bold">退出</button></div>
-                            <div className="space-y-6">
-                                <div className="bg-white/5 p-6 rounded-2xl border border-white/10">
-                                    <h3 className="font-bold mb-4 flex items-center gap-2 text-lg">☁️ 雲端同步</h3>
-                                    {userObj ? (
-                                        <div className="text-center">
-                                            <p className="text-green-400 mb-4">已登入：{userObj.email}</p>
-                                            <button onClick={handleLogout} className="bg-red-600 px-6 py-2 rounded-full font-bold">登出 Google</button>
-                                        </div>
-                                    ) : (
-                                        <button onClick={handleLogin} className="w-full bg-white text-black p-4 rounded-xl font-bold shadow-lg flex items-center justify-center gap-2"><img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" className="w-6 h-6"/> 使用 Google 登入同步進度</button>
-                                    )}
-                                    <p className="text-xs text-gray-500 text-center mt-3">登入後，進度將自動保存至雲端，換手機也能玩！</p>
+                    {screen === 'game' && (
+                        <div className="h-full flex flex-col bg-slate-900/50 text-white relative z-10">
+                            {/* HUD */}
+                            <div className="p-3 flex justify-between items-center bg-black/30 backdrop-blur">
+                                <div className="flex items-center gap-2">
+                                    <div className="text-2xl">{CHARACTERS[playerKey].avatar}</div>
+                                    <div className="w-24 h-3 bg-gray-700 rounded-full overflow-hidden"><div className="h-full bg-green-500 transition-all" style={{width:`${playerHp}%`}}/></div>
                                 </div>
-                                <div className="flex gap-2 mb-4 bg-black/20 p-1 rounded-lg overflow-x-auto scrollbar-hide">{Object.values(CHARACTERS).filter(c=>c.id!=='mom').map(c => (<button key={c.id} onClick={()=>setSettingChar(c.id)} className={`flex-1 py-2 px-3 whitespace-nowrap rounded font-bold ${settingChar===c.id ? 'bg-indigo-600 text-white':'text-gray-400'}`}>{c.name}</button>))}</div>
-                                <div className="flex gap-2 mb-4"><button onClick={()=>setSettingTab('vocab')} className={`flex-1 py-2 rounded border border-white/10 ${settingTab==='vocab'?'bg-blue-600':'bg-white/5'}`}>📚 單字設定 (⭐重點)</button><button onClick={()=>setSettingTab('math')} className={`flex-1 py-2 rounded border border-white/10 ${settingTab==='math'?'bg-orange-600':'bg-white/5'}`}>🔢 數學難度</button></div>
-                                {settingTab === 'vocab' && <VocabSettings charKey={settingChar} />}
-                                {settingTab === 'math' && <MathSettings charKey={settingChar} />}
+                                <div className={`text-center ${fever ? 'scale-110 text-yellow-300' : ''}`}>
+                                    <div className="text-xs font-bold">LV.{dailyLevel} {fever && '🔥FEVER!'}</div>
+                                    <div className="text-3xl font-mono font-bold">{timer}</div>
+                                </div>
+                                <div className={`text-2xl ${question.isBoss ? 'boss-mode' : ''}`}>{scenario.emoji}</div>
+                            </div>
+                            
+                            <div className="flex-1 flex flex-col items-center justify-center p-4 relative overflow-hidden">
+                                {/* Visuals */}
+                                <div className="absolute inset-0 flex justify-between items-center px-4 pointer-events-none opacity-80">
+                                    <div className={`text-9xl transition-transform duration-300 ${animState==='attack'?'translate-x-20':''} ${animState==='hurt'?'animate-shake':''}`}><FullBodyChar charId={playerKey} items={stats[playerKey].earnedItems} /></div>
+                                    <div className={`text-9xl transition-transform duration-300 ${animState==='attack'?'animate-shake':''} ${animState==='hurt'?'-translate-x-20':''}`}>{scenario.emoji}</div>
+                                </div>
+
+                                {/* Skills */}
+                                <div className="absolute bottom-4 left-4 flex gap-2 z-20">
+                                    {hasHeal && <button onClick={()=>useSkill('heal')} disabled={skillUsed.heal} className={`p-3 rounded-full text-2xl shadow-lg border-2 border-white ${skillUsed.heal ? 'bg-gray-500 opacity-50' : 'bg-green-500 animate-bounce'}`}>🧪</button>}
+                                    {hasTime && <button onClick={()=>useSkill('time')} disabled={skillUsed.time} className={`p-3 rounded-full text-2xl shadow-lg border-2 border-white ${skillUsed.time ? 'bg-gray-500 opacity-50' : 'bg-blue-500 animate-bounce'}`}>⏳</button>}
+                                </div>
+
+                                {/* Question Card */}
+                                <div className={`bg-white/10 backdrop-blur-md p-6 rounded-3xl w-full max-w-md text-center border border-white/20 shadow-2xl relative z-10 transition-transform ${feedback?'scale-105':''}`}>
+                                    {feedback && <div className={`absolute inset-0 flex items-center justify-center text-8xl font-bold bg-black/60 rounded-3xl z-20 ${feedback==='correct'?'text-green-500':'text-red-500'}`}>{feedback==='correct'?'⭕':'❌'}</div>}
+                                    <div className="mb-4">
+                                        <span className="text-blue-300 text-xs font-bold uppercase bg-black/40 px-2 py-1 rounded">{gameMode.includes('math')?'MATH':`ENGLISH`}</span>
+                                        {question.isListening ? (
+                                            <div className="mt-4 text-4xl font-bold animate-pulse text-yellow-300 cursor-pointer" onClick={()=>speakWord(question.fullSentence)}>🔊 點擊聽題目</div>
+                                        ) : (
+                                            <h2 className="text-4xl font-black mt-2 leading-tight">{gameMode.includes('math')?question.text:question.display}</h2>
+                                        )}
+                                    </div>
+                                    {gameMode.includes('english') && inputMode === 'select' ? (<div className="grid grid-cols-2 gap-3">{question.options.map(opt=><button key={opt} onClick={()=>handleAnswer(opt)} className="bg-white/10 p-4 rounded-xl font-bold text-xl border border-white/10 active:bg-indigo-600 transition-colors">{opt}</button>)}</div>) : (<div className="flex gap-2"><input value={userAnswer} onChange={e=>setUserAnswer(e.target.value)} className="flex-1 bg-black/50 border-2 border-white/20 rounded-xl p-3 text-2xl text-center outline-none focus:border-yellow-400 text-white" placeholder="輸入..." type={gameMode.includes('math')?'tel':'text'}/><button onClick={()=>handleAnswer(userAnswer)} className="bg-yellow-500 text-black px-6 rounded-xl font-black text-xl">GO</button></div>)}
+                                    {gameMode.includes('english') && <div className="mt-4 flex justify-center gap-2"><button onClick={()=>setInputMode('select')} className={`px-3 py-1 rounded-full text-xs font-bold ${inputMode==='select'?'bg-blue-600':'bg-white/10'}`}>選擇題</button><button onClick={()=>setInputMode('type')} className={`px-3 py-1 rounded-full text-xs font-bold ${inputMode==='type'?'bg-purple-600':'bg-white/10'}`}>拼字題</button></div>}
+                                </div>
                             </div>
                         </div>
                     )}
 
-                    {/* (Game, Result, Vocab 畫面代碼與前版相同，為節省空間省略) */}
-                    {screen === 'game' && <div className="h-full flex flex-col bg-slate-900/50 text-white relative z-10"><div className="p-4 flex justify-between items-center bg-black/40 backdrop-blur-md border-b border-white/10"><div className="flex items-center gap-2"><div className="text-3xl relative">{CHARACTERS[playerKey].avatar}<div className="absolute -top-1 -right-1 text-xs">{stats[playerKey].earnedItems && stats[playerKey].earnedItems.length > 0 ? '👑' : ''}</div></div><div className="h-4 w-28 bg-gray-700 rounded-full overflow-hidden border border-gray-500 relative"><div className={`h-full transition-all duration-300 ${playerHp < 30 ? 'bg-red-500 animate-pulse' : 'bg-green-500'}`} style={{width: `${playerHp}%`}}/><span className="absolute inset-0 flex items-center justify-center text-[10px] font-bold">HP {Math.round(playerHp)}</span></div></div><div className={`text-center font-mono transition-all ${timer < 5 ? 'scale-125 text-red-500 animate-heartbeat' : ''}`}><div className="text-yellow-400 text-xs uppercase font-bold tracking-wider">LEVEL {dailyLevel}</div><div className="text-4xl font-bold">{timer}</div></div><div className="text-right"><div className="text-3xl">{scenario.emoji}</div></div></div><div className="w-full h-2 bg-gray-800"><div className="h-full transition-all duration-1000 ease-linear" style={{width: `${(timer/maxTime)*100}%`, backgroundColor: timer < 5 ? '#ef4444' : (timer < 10 ? '#fbbf24' : '#10b981')}}/></div><div className="flex-1 flex flex-col items-center justify-center p-6 relative"><div className="absolute top-10 w-full flex justify-between px-10 pointer-events-none opacity-80"><div className={`text-9xl transition-transform duration-300 relative ${animState==='attack'?'animate-attack-right':''} ${animState==='hurt'?'animate-damage':''} ${animState==='dead'?'animate-dead':'animate-breathe'}`}>{CHARACTERS[playerKey].avatar}<ItemDisplay items={stats[playerKey].earnedItems} /></div><div className={`text-9xl transition-transform duration-300 ${animState==='hurt'?'animate-attack-left':''} ${animState==='attack'?'animate-damage':''}`}>{scenario.emoji}</div></div>{effectText && <div className="absolute top-1/3 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-6xl font-black text-yellow-300 drop-shadow-lg animate-float-up z-20">{effectText}</div>}<div className={`bg-white/10 backdrop-blur-lg p-8 rounded-[2rem] w-full max-w-xl text-center border border-white/20 shadow-2xl relative overflow-hidden transition-all ${feedback ? 'scale-105' : ''}`}><h3 className="text-blue-300 text-sm font-bold mb-4 uppercase tracking-widest bg-black/30 inline-block px-3 py-1 rounded-full">{gameMode.includes('math') ? 'MATH MISSION' : `ENGLISH: ${question.hint}`}</h3><h2 className="text-4xl md:text-5xl font-black mb-8 leading-tight drop-shadow-md">{gameMode.includes('math') ? question.text : question.display}</h2>{gameMode.includes('english') && inputMode === 'select' ? (<div className="grid grid-cols-2 gap-4">{question.options.map(opt => (<button key={opt} onClick={()=>handleAnswer(opt)} className="bg-white/10 hover:bg-indigo-600 py-4 rounded-2xl text-xl font-bold border-2 border-white/10 active:scale-95 transition-all shadow-lg">{opt}</button>))}</div>) : (<div className="flex gap-2"><input value={userAnswer} onChange={e => setUserAnswer(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleAnswer(userAnswer)} placeholder="輸入答案..." className="flex-1 bg-black/50 border-2 border-white/30 p-4 text-3xl rounded-xl text-center outline-none focus:border-yellow-400 transition-colors text-white placeholder-gray-600" autoFocus type={gameMode.includes('math') && !question.isRemain ? "tel" : "text"} /><button onClick={() => handleAnswer(userAnswer)} className="bg-yellow-400 text-black px-8 rounded-xl font-black text-xl shadow-lg active:scale-95">GO</button></div>)}{gameMode.includes('english') && (<div className="mt-8 flex justify-center gap-2 text-xs font-bold"><button onClick={()=>setInputMode('select')} className={`px-4 py-2 rounded-full transition-colors ${inputMode==='select'?'bg-blue-600 text-white':'bg-white/10 text-gray-400'}`}>選擇題</button><button onClick={()=>setInputMode('type')} className={`px-4 py-2 rounded-full transition-colors ${inputMode==='type'?'bg-purple-600 text-white':'bg-white/10 text-gray-400'}`}>拼字題 (加分)</button></div>)}</div></div></div>}
-                    {screen === 'result' && <div className={`h-full flex flex-col items-center justify-center p-8 text-center animate-in fade-in zoom-in duration-500 ${animState==='dead' ? 'grayscale' : ''}`}>{dailyLevel % 10 === 0 && playerHp > 0 ? (<><div className="text-8xl mb-4 animate-bounce">🏆</div><h2 className="text-5xl font-black text-yellow-400 mb-4 drop-shadow-lg">大獲全勝！</h2><p className="text-gray-300 mb-10 text-xl font-bold">恭喜通過第 <span className="text-white text-3xl">{dailyLevel}</span> 關</p></>) : (<><div className="text-8xl mb-4 text-gray-500">💀</div><h2 className="text-4xl font-black text-gray-400 mb-4">再接再厲...</h2><p className="text-gray-500 mb-10 text-xl">英雄累了，休息一下再來挑戰！</p></>)}<button onClick={() => setScreen('menu')} className="bg-white text-indigo-900 px-16 py-5 rounded-2xl font-black text-2xl shadow-2xl hover:scale-105 transition-all">返回基地</button></div>}
-                    {screen === 'vocab' && <div className="h-full bg-slate-900 p-6 overflow-y-auto"><div className="flex justify-between items-center mb-6 border-b border-gray-700 pb-4"><h2 className="text-2xl font-bold flex items-center gap-2">📖 單字本</h2><button onClick={() => setScreen('menu')} className="bg-gray-700 px-4 py-2 rounded-lg text-sm font-bold">返回</button></div><div className="grid grid-cols-2 md:grid-cols-3 gap-3">{(vocabMap[playerKey]||BASE_VOCAB).map((v, i) => (<div key={i} onClick={()=>speakWord(v.word)} className={`bg-white/10 p-4 rounded-xl cursor-pointer hover:bg-white/20 border border-white/5 transition-colors active:scale-95 ${v.isFocus ? 'border-yellow-500/50 bg-yellow-500/10' : ''}`}><div className="flex justify-between items-start"><div className="font-bold text-blue-300 text-lg mb-1">{v.word}</div>{v.isFocus && <span className="text-yellow-500">⭐</span>}</div><div className="text-sm text-gray-400">{v.mean}</div></div>))}</div></div>}
+                    {screen === 'sticker' && <StickerBook />}
+                    {/* (保留 Vocab, Settings, Result 畫面代碼，與前版相同，為節省空間省略) */}
+                    {screen === 'result' && <div className="h-full flex flex-col items-center justify-center p-8 text-center bg-indigo-900 text-white"><div className="text-6xl mb-4">{dailyLevel%10===0?'🏆':'💀'}</div><h2 className="text-3xl font-bold mb-4">{dailyLevel%10===0?'挑戰成功！':'再接再厲'}</h2><button onClick={()=>setScreen('menu')} className="bg-white text-black px-8 py-3 rounded-xl font-bold">返回</button></div>}
+                    {screen === 'vocab' && <div className="h-full p-4 overflow-y-auto bg-indigo-900 text-white"><button onClick={()=>setScreen('menu')} className="mb-4 bg-gray-700 px-3 py-1 rounded">返回</button><div className="grid grid-cols-2 gap-2">{(vocabMap[playerKey]||BASE_VOCAB).map((v,i)=><div key={i} onClick={()=>speakWord(v.word)} className="bg-white/10 p-2 rounded">{v.word} <span className="text-xs text-gray-400">{v.mean}</span></div>)}</div></div>}
+                    {screen === 'settings' && <div className="h-full p-4 bg-slate-900 text-white"><button onClick={()=>setScreen('menu')} className="mb-4 bg-gray-700 px-3 py-1 rounded">退出</button><div className="text-center text-gray-400">請確認 Firebase Config 是否已填入</div></div>}
                 </div>
             );
         }
