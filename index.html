@@ -3,18 +3,20 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>印家英雄榜：怪獸討伐</title>
+    <title>印家英雄榜：知識大冒險</title>
+    <!-- React & Tailwind -->
     <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     
-    <!-- Firebase -->
+    <!-- Firebase (使用 try-catch 包覆，確保不崩潰) -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
         import { getFirestore, doc, getDoc, setDoc, onSnapshot, updateDoc, increment } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
         import { getAuth, signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 
+        // --- 請確認您的 Firebase Config ---
         const firebaseConfig = {
             apiKey: "AIzaSyCagXSigdL09-OK4G5jF20Hj3iXnRVQs-M",
             authDomain: "family-hero-f89f7.firebaseapp.com",
@@ -30,22 +32,32 @@
             window.db = getFirestore(app);
             window.auth = getAuth(app);
             window.provider = new GoogleAuthProvider();
-            window.doc = doc; window.getDoc = getDoc; window.setDoc = setDoc; window.onSnapshot = onSnapshot; window.updateDoc = updateDoc; window.increment = increment;
+            // 掛載全域變數供 React 使用
+            window.doc = doc; window.getDoc = getDoc; window.setDoc = setDoc; 
+            window.onSnapshot = onSnapshot; window.updateDoc = updateDoc; window.increment = increment;
             window.signInWithPopup = signInWithPopup; window.signOut = signOut; window.onAuthStateChanged = onAuthStateChanged;
-        } catch (e) { console.error("Firebase error", e); }
+            console.log("🔥 Firebase 連線模組載入成功");
+        } catch (e) { 
+            console.warn("⚠️ Firebase 連線失敗 (可能未設定或網路問題)，將使用單機模式。", e); 
+        }
     </script>
 
     <style>
+        /* 動畫特效 */
         @keyframes shake { 0%, 100% { transform: translate(0, 0); } 10%, 90% { transform: translate(-5px, 0); } 50% { transform: translate(5px, 0); } }
         .animate-shake { animation: shake 0.4s ease-in-out; }
         @keyframes pulse-fast { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.1); } }
         .animate-heartbeat { animation: pulse-fast 0.8s infinite; }
         @keyframes attack-rush { 0% { transform: translateX(0); } 50% { transform: translateX(50px) scale(1.2); } 100% { transform: translateX(0); } }
         .animate-attack { animation: attack-rush 0.3s ease-out; }
+        @keyframes boss-float { 0%, 100% { transform: translateY(0) scale(1.5); } 50% { transform: translateY(-20px) scale(1.55); } }
+        .boss-mode { animation: boss-float 3s ease-in-out infinite; filter: drop-shadow(0 0 20px red); }
+        @keyframes fire-border { 0% { box-shadow: inset 0 0 20px red; } 50% { box-shadow: inset 0 0 50px orange; } 100% { box-shadow: inset 0 0 20px red; } }
+        .fever-mode { animation: fire-border 1s infinite; border: 2px solid #fbbf24; }
         @keyframes pop { 0% { transform: scale(0); } 80% { transform: scale(1.2); } 100% { transform: scale(1); } }
         .pop-in { animation: pop 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; }
         
-        body { margin: 0; overflow: hidden; font-family: system-ui, -apple-system, sans-serif; user-select: none; -webkit-tap-highlight-color: transparent; }
+        body { margin: 0; overflow: hidden; font-family: system-ui, -apple-system, sans-serif; user-select: none; -webkit-tap-highlight-color: transparent; background-color: #1e1b4b; color: white; }
         .bg-forest { background: linear-gradient(to bottom, #14532d, #064e3b); }
         .bg-desert { background: linear-gradient(to bottom, #7c2d12, #451a03); }
         .bg-ice { background: linear-gradient(to bottom, #1e3a8a, #172554); }
@@ -69,7 +81,25 @@
     </style>
 </head>
 <body>
-    <div id="root"></div>
+    <div id="root" class="flex h-screen w-full items-center justify-center text-xl font-bold animate-pulse">
+        🚀 遊戲載入中... (如果卡住請重新整理)
+    </div>
+
+    <!-- 錯誤處理腳本 -->
+    <script>
+        window.onerror = function(message, source, lineno, colno, error) {
+            document.getElementById('root').innerHTML = `
+                <div class="p-8 text-center bg-red-900 text-white">
+                    <h1 class="text-2xl font-bold mb-4">⚠️ 哎呀！發生錯誤</h1>
+                    <p class="mb-4">可能是存檔資料衝突或程式錯誤。</p>
+                    <p class="text-xs bg-black p-2 rounded mb-4 text-left font-mono">${message}</p>
+                    <button onclick="localStorage.clear(); location.reload();" class="bg-white text-red-900 px-4 py-2 rounded font-bold">
+                        重置所有存檔並修復 (Reset)
+                    </button>
+                </div>
+            `;
+        };
+    </script>
 
     <script type="text/babel">
         const { useState, useEffect, useRef } = React;
@@ -116,20 +146,10 @@
             return `${year}-W${week}`;
         };
 
-        const INITIAL_STATS_TEMPLATE = { 
-            lastPlayedDate: '', lastWeekId: '', 
-            dailyMathLevel: 0, dailyEnglishLevel: 0, dailyScore: 0, 
-            allTimeBest: { score: 0, date: '-' }, weeklyHistory: [],
-            earnedItems: [], stickerBook: []
-        };
+        // 安全的預設資料產生器
+        const getInitialStats = () => ({ lastPlayedDate: '', lastWeekId: '', dailyMathLevel: 0, dailyEnglishLevel: 0, dailyScore: 0, allTimeBest: { score: 0, date: '-' }, earnedItems: [], stickerBook: [] });
+        const INITIAL_DB_STRUCTURE = { daughter: getInitialStats(), son: getInitialStats(), mom: getInitialStats(), challenger: getInitialStats() };
         
-        const INITIAL_STATS = {
-            daughter: { ...INITIAL_STATS_TEMPLATE },
-            son: { ...INITIAL_STATS_TEMPLATE },
-            mom: { ...INITIAL_STATS_TEMPLATE },
-            challenger: { ...INITIAL_STATS_TEMPLATE }
-        };
-
         const INITIAL_MATH_SETTINGS = { daughter: { slots: [{ range: 10, weight: 5 }, { range: 20, weight: 3 }, { range: 50, weight: 2 }] }, son: { weights: { '2-digit-add-sub': 5, '3-digit-add-sub': 2, '1-digit-mult': 3, '2-digit-mult': 1, 'div-exact': 2, 'div-remain': 1 } }, challenger: { weights: { '2-digit-add-sub': 5, '3-digit-add-sub': 2, '1-digit-mult': 3, '2-digit-mult': 1, 'div-exact': 2, 'div-remain': 1 } } };
         const CHARACTERS = { 
             daughter: { id: 'daughter', name: '超人力霸榕', avatar: '🦸‍♀️', needPwd: true, theme: 'princess', attackType: 'beam' }, 
@@ -140,9 +160,19 @@
         const PARENT_PASSWORD = "28825252";
         const FAMILY_PASSWORD = "168";
 
+        // --- 音樂音效 ---
         let audioCtx = null;
+        let musicInterval = null;
         const initAudio = () => { if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)(); if (audioCtx.state === 'suspended') audioCtx.resume(); };
         const playTone = (f, t, v=0.2, d=0.1) => { if(!audioCtx)return; const o=audioCtx.createOscillator(); const g=audioCtx.createGain(); o.type=t; o.frequency.value=f; g.gain.value=v; g.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime+d); o.connect(g); g.connect(audioCtx.destination); o.start(); o.stop(audioCtx.currentTime+d); };
+        const stopMusic = () => { if (musicInterval) clearInterval(musicInterval); };
+        const playMusic = (style) => {
+            stopMusic(); if (!audioCtx) return;
+            let scale = [261, 329, 392, 523]; let tempo = 400; let wave = 'sine';
+            if (style === 'battle') { scale = [130, 155, 196, 261]; tempo = 200; wave = 'sawtooth'; }
+            else if (style === 'tense') { scale = [110, 116, 130]; tempo = 150; wave = 'square'; }
+            musicInterval = setInterval(() => { if (Math.random() > 0.4) playTone(scale[Math.floor(Math.random() * scale.length)], tempo / 1000, wave); }, tempo);
+        };
         const playSFX = (t) => {
             if (!audioCtx) return;
             if (t==='attack') { playTone(200,'square',0.3); setTimeout(()=>playTone(150,'square',0.3),100); }
@@ -153,12 +183,23 @@
         };
         const speakWord = (text) => { if ('speechSynthesis' in window) { window.speechSynthesis.cancel(); const u = new SpeechSynthesisUtterance(text); u.lang = 'en-US'; u.rate = 0.9; window.speechSynthesis.speak(u); } };
 
-        // --- 全身角色組件 ---
+        const getInitialVocab = (role) => {
+            let list = [...BASE_VOCAB];
+            if (role === 'daughter' || role === 'son') list = [...list, ...NUMBERS_1_10];
+            if (role === 'son') {
+                list = [...list, ...BROTHER_EXTRAS];
+                list = list.map(v => (['happy','sad'].includes(v.word) ? { ...v, isFocus: true } : v));
+            }
+            const unique = []; const map = new Map();
+            for (const item of list) { if(!map.has(item.word)){ map.set(item.word, true); unique.push(item); } else if (item.isFocus) { const idx = unique.findIndex(u => u.word === item.word); unique[idx] = item; } }
+            return unique;
+        };
+
         const FullBodyChar = ({ charId, items, isAnimating }) => {
             const char = CHARACTERS[charId];
             const theme = char.theme;
             const allItems = [...ITEMS_DB.princess.math, ...ITEMS_DB.princess.english, ...ITEMS_DB.hero.math, ...ITEMS_DB.hero.english];
-            const myGear = allItems.filter(i => items.includes(i.id));
+            const myGear = allItems.filter(i => items && items.includes(i.id));
             const hat = myGear.find(i => i.type === 'head');
             const weapon = myGear.find(i => i.type === 'weapon');
             const shield = myGear.find(i => i.type === 'shield');
@@ -187,10 +228,9 @@
             return Icon ? <Icon size={18} /> : <span>⚙️</span>;
         };
 
-        // --- 排行榜組件 ---
+        // --- 排行榜 ---
         const LeaderboardModal = ({ stats, onClose }) => {
-            const [tab, setTab] = useState('daily'); // daily, week, all
-            
+            const [tab, setTab] = useState('daily');
             const getSorted = (type) => {
                 const list = Object.entries(stats).map(([key, data]) => ({
                     key,
@@ -203,9 +243,7 @@
                 }));
                 return list.sort((a, b) => b.score - a.score);
             };
-
             const data = getSorted(tab);
-
             return (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-4 animate-pop">
                     <div className="bg-slate-800 w-full max-w-md rounded-2xl border-2 border-yellow-400 flex flex-col overflow-hidden text-white shadow-2xl">
@@ -223,10 +261,7 @@
                                 <div key={p.key} className="flex items-center bg-white/10 p-3 rounded-xl border border-white/5">
                                     <div className={`w-8 h-8 flex items-center justify-center rounded-full font-black mr-3 ${i===0?'bg-yellow-400 text-black':(i===1?'bg-gray-400 text-black':(i===2?'bg-orange-700 text-white':'bg-slate-700 text-gray-400'))}`}>{i+1}</div>
                                     <div className="text-2xl mr-3">{p.avatar}</div>
-                                    <div className="flex-1">
-                                        <div className="font-bold text-sm">{p.name}</div>
-                                        {p.extra && <div className="text-xs text-gray-400">{p.extra}</div>}
-                                    </div>
+                                    <div className="flex-1"><div className="font-bold text-sm">{p.name}</div>{p.extra && <div className="text-xs text-gray-400">{p.extra}</div>}</div>
                                     <div className="text-xl font-mono font-bold text-yellow-300">{p.score}</div>
                                 </div>
                             ))}
@@ -244,22 +279,9 @@
                         <button onClick={onClose} className="text-gray-400 hover:text-white"><LucideIcon name="x" /></button>
                     </div>
                     <div className="p-6 overflow-y-auto space-y-6 text-sm leading-relaxed">
-                        <section>
-                            <h3 className="text-lg font-bold text-blue-300 mb-2">⚔️ 雙軌挑戰規則</h3>
-                            <p className="text-gray-300">為了成為全能英雄，數學和英文必須一起進步！如果您在某一科練到了 <strong>Lv.20, Lv.40...</strong> 等整數關卡，必須把另一科也練上來，才能解鎖下一階段喔！</p>
-                        </section>
-                        <section>
-                            <h3 className="text-lg font-bold text-green-400 mb-2">🎒 裝備與重置</h3>
-                            <ul className="list-disc pl-5 space-y-1 text-gray-300">
-                                <li><strong>掉落機制：</strong>每通過 10 關（例如 Lv.10, 20...），打敗 BOSS 後會掉落寶箱！</li>
-                                <li><strong>每週重置：</strong>為了保持挑戰性，每週一裝備會歸零。</li>
-                                <li><strong>永久圖鑑：</strong>別擔心！只要獲得過的寶物，都會永久記錄在「圖鑑」裡。</li>
-                            </ul>
-                        </section>
-                        <section>
-                            <h3 className="text-lg font-bold text-yellow-400 mb-2">🔥 得分秘訣</h3>
-                            <p className="text-gray-300"><strong>基礎分 (100) + 速度獎勵 + 連擊加成</strong>。答得越快分數越高，連續答對還能進入 Fever 模式分數加倍！</p>
-                        </section>
+                        <section><h3 className="text-lg font-bold text-blue-300 mb-2">⚔️ 雙軌挑戰規則</h3><p className="text-gray-300">為了成為全能英雄，數學和英文必須一起進步！如果您在某一科練到了 <strong>Lv.20, Lv.40...</strong> 等整數關卡，必須把另一科也練上來，才能解鎖下一階段喔！</p></section>
+                        <section><h3 className="text-lg font-bold text-green-400 mb-2">🎒 裝備與重置</h3><ul className="list-disc pl-5 space-y-1 text-gray-300"><li><strong>掉落機制：</strong>每通過 10 關（例如 Lv.10, 20...），打敗 BOSS 後會掉落寶箱！</li><li><strong>每週重置：</strong>為了保持挑戰性，每週一裝備會歸零。</li><li><strong>永久圖鑑：</strong>別擔心！只要獲得過的寶物，都會永久記錄在「圖鑑」裡。</li></ul></section>
+                        <section><h3 className="text-lg font-bold text-yellow-400 mb-2">🔥 得分秘訣</h3><p className="text-gray-300"><strong>基礎分 (100) + 速度獎勵 + 連擊加成</strong>。答得越快分數越高，連續答對還能進入 Fever 模式分數加倍！</p></section>
                     </div>
                 </div>
             </div>
@@ -270,11 +292,12 @@
             const [playerKey, setPlayerKey] = useState('daughter');
             const [momMode, setMomMode] = useState('daughter');
             const [gameMode, setGameMode] = useState('math');
-            const [stats, setStats] = useState(INITIAL_STATS);
+            const [stats, setStats] = useState(INITIAL_DB_STRUCTURE);
             const [vocabMap, setVocabMap] = useState({ daughter: getInitialVocab('daughter'), son: getInitialVocab('son'), mom: getInitialVocab('mom'), challenger: getInitialVocab('challenger') });
             const [mathSettings, setMathSettings] = useState(INITIAL_MATH_SETTINGS);
             const [rewards, setRewards] = useState({ levelRewards: {}, dailyScore: Array(5).fill({score:0, reward:""}) });
             const [raidData, setRaidData] = useState({ hp: 10000, maxHp: 10000 });
+            const [audioStarted, setAudioStarted] = useState(false);
             
             const [dailyLevel, setDailyLevel] = useState(1);
             const [timer, setTimer] = useState(0);
@@ -295,37 +318,55 @@
             const [fever, setFever] = useState(false);
             const [showHelp, setShowHelp] = useState(false);
             const [showLeaderboard, setShowLeaderboard] = useState(false);
-            const [audioStarted, setAudioStarted] = useState(false);
 
             const gameRuleKeyRef = useRef('daughter');
             const timerRef = useRef(null);
 
+            // --- 強化的資料載入與修復 ---
             useEffect(() => {
-                const saved = JSON.parse(localStorage.getItem('fh_v11_final'));
-                const currentWeek = getWeekId();
-                const today = new Date().toISOString().split('T')[0];
-                if (saved) { 
-                    const loadedStats = { ...INITIAL_STATS, ...saved.stats };
+                try {
+                    const saved = JSON.parse(localStorage.getItem('fh_v11_final'));
+                    const currentWeek = getWeekId();
+                    const today = new Date().toISOString().split('T')[0];
+                    
+                    let loadedStats = { ...INITIAL_DB_STRUCTURE };
+                    
+                    if (saved) {
+                        // 深度合併，確保新角色 key 存在
+                        Object.keys(INITIAL_DB_STRUCTURE).forEach(role => {
+                            if (saved.stats && saved.stats[role]) {
+                                loadedStats[role] = { ...INITIAL_DB_STRUCTURE[role], ...saved.stats[role] };
+                            }
+                        });
+                        if (saved.vocabMap) setVocabMap(saved.vocabMap);
+                        if (saved.mathSettings) setMathSettings(saved.mathSettings);
+                        if (saved.rewards) setRewards(saved.rewards);
+                    }
+
+                    // 重置邏輯
                     Object.keys(loadedStats).forEach(k => {
                         if (loadedStats[k].lastWeekId !== currentWeek) { loadedStats[k].earnedItems = []; loadedStats[k].lastWeekId = currentWeek; }
                         if (loadedStats[k].lastPlayedDate !== today) { loadedStats[k].dailyScore = 0; loadedStats[k].lastPlayedDate = today; }
                     });
-                    setStats(loadedStats); 
-                    setVocabMap({ ...vocabMap, ...saved.vocabMap });
-                    setMathSettings({ ...INITIAL_MATH_SETTINGS, ...saved.mathSettings });
-                    setRewards(saved.rewards); 
-                }
-                
-                if (window.db) {
-                    const unsub = window.onSnapshot(window.doc(window.db, "system", "raidBoss"), (doc) => {
-                        if (doc.exists()) setRaidData(doc.data());
-                        else window.setDoc(window.doc(window.db, "system", "raidBoss"), { hp: 10000, maxHp: 10000 });
-                    });
-                    const authUnsub = window.onAuthStateChanged(window.auth, (u) => {
-                        setUserObj(u);
-                        if(u && saved) saveToCloud(u);
-                    });
-                    return () => { unsub(); authUnsub(); };
+                    
+                    setStats(loadedStats);
+
+                    // Firebase Listener
+                    if (window.db) {
+                        const unsubRaid = window.onSnapshot(window.doc(window.db, "system", "raidBoss"), (doc) => {
+                            if (doc.exists()) setRaidData(doc.data());
+                            else window.setDoc(window.doc(window.db, "system", "raidBoss"), { hp: 10000, maxHp: 10000 });
+                        });
+                        const unsubAuth = window.onAuthStateChanged(window.auth, (u) => {
+                            setUserObj(u);
+                            if(u && saved) saveToCloud(u, { stats: loadedStats, vocabMap, mathSettings, rewards });
+                        });
+                        return () => { unsubRaid(); unsubAuth(); };
+                    }
+                } catch (e) {
+                    console.error("Data Load Error, resetting...", e);
+                    // 如果載入失敗，使用預設值防止白畫面
+                    setStats(INITIAL_DB_STRUCTURE);
                 }
             }, []);
 
@@ -333,27 +374,15 @@
                 localStorage.setItem('fh_v11_final', JSON.stringify({ stats, vocabMap, mathSettings, rewards })); 
             }, [stats, vocabMap, mathSettings, rewards]);
 
-            const saveToCloud = async (u) => {
+            const saveToCloud = async (u, data) => {
                 if (!window.db) return;
-                try { await window.setDoc(window.doc(window.db, "users", u.uid), { stats, vocabMap, mathSettings, rewards }); } catch (e) {}
+                try { await window.setDoc(window.doc(window.db, "users", u.uid), data || { stats, vocabMap, mathSettings, rewards }); } catch (e) {}
             };
 
             const handleRaidDamage = async (dmg) => {
                 if (window.db) {
                     await window.updateDoc(window.doc(window.db, "system", "raidBoss"), { hp: window.increment(-dmg) });
                 }
-            };
-
-            const getInitialVocab = (role) => {
-                let list = [...BASE_VOCAB];
-                if (role === 'daughter' || role === 'son') list = [...list, ...NUMBERS_1_10];
-                if (role === 'son') {
-                    list = [...list, ...BROTHER_EXTRAS];
-                    list = list.map(v => (['happy','sad'].includes(v.word) ? { ...v, isFocus: true } : v));
-                }
-                const unique = []; const map = new Map();
-                for (const item of list) { if(!map.has(item.word)){ map.set(item.word, true); unique.push(item); } else if (item.isFocus) { const idx = unique.findIndex(u => u.word === item.word); unique[idx] = item; } }
-                return unique;
             };
 
             const pickWeighted = (opts) => { let total = opts.reduce((a,c)=>a+c.weight,0); let r = Math.random()*total; for(let o of opts){ if(r<o.weight)return o.item; r-=o.weight; } return opts[0].item; };
@@ -393,8 +422,8 @@
                 const rule = (playerKey==='mom'||playerKey==='challenger') ? momMode : playerKey;
                 gameRuleKeyRef.current = rule;
                 setGameMode(mode); setPlayerHp(100); setHp(100); setScore(stats[playerKey].dailyScore); setCombo(0); setFever(false); setSkillUsed({heal:false, time:false});
-                const myLv = mode === 'daily_math' ? stats[playerKey].dailyMathLevel : stats[playerKey].dailyEnglishLevel;
-                const otherLv = mode === 'daily_math' ? stats[playerKey].dailyEnglishLevel : stats[playerKey].dailyMathLevel;
+                const myLv = mode.includes('math') ? stats[playerKey].dailyMathLevel : stats[playerKey].dailyEnglishLevel;
+                const otherLv = mode.includes('math') ? stats[playerKey].dailyEnglishLevel : stats[playerKey].dailyMathLevel;
                 if (myLv > 0 && myLv % 20 === 0 && otherLv < myLv) { alert(`🚧 數學與英文要平衡發展喔！請先把另一科追到 Lv.${myLv}！`); return; }
                 const startLv = Math.floor(myLv / 10) * 10 + 1;
                 setDailyLevel(startLv); nextTurn(mode); setScreen('game');
@@ -406,7 +435,7 @@
                 const isBoss = lv > 0 && lv % 10 === 0;
                 let bgClass = 'bg-forest';
                 if(lv > 30) bgClass = 'bg-volcano'; else if(lv > 20) bgClass = 'bg-ice'; else if(lv > 10) bgClass = 'bg-desert';
-                document.body.className = `no-select ${bgClass}`;
+                document.body.className = bgClass;
                 const isListening = lv % 10 === 5 && mode.includes('english');
                 const q = mode.includes('math') ? generateMathQuestion(gameRuleKeyRef.current) : generateEnglishQuestion(gameRuleKeyRef.current);
                 setQuestion({ ...q, isListening, isBoss });
@@ -421,13 +450,16 @@
                     const theme = CHARACTERS[playerKey].theme;
                     const type = gameMode.includes('math') ? 'math' : 'english';
                     const pool = ITEMS_DB[theme][type];
-                    const earned = stats[playerKey].earnedItems;
+                    const earned = stats[playerKey].earnedItems || [];
                     const avail = pool.filter(i => !earned.includes(i.id));
                     if (avail.length > 0) {
                         const drop = avail[Math.floor(Math.random()*avail.length)];
-                        const newStats = {...stats}; newStats[playerKey].earnedItems.push(drop.id);
+                        const newStats = {...stats}; 
+                        if (!newStats[playerKey].earnedItems) newStats[playerKey].earnedItems = [];
+                        newStats[playerKey].earnedItems.push(drop.id);
+                        if (!newStats[playerKey].stickerBook) newStats[playerKey].stickerBook = [];
                         if (!newStats[playerKey].stickerBook.includes(drop.id)) newStats[playerKey].stickerBook.push(drop.id);
-                        setStats(newStats); if (userObj) saveToCloud(userObj);
+                        setStats(newStats); if (userObj) saveToCloud(userObj, { stats: newStats, vocabMap, mathSettings, rewards });
                         setNewItem(drop); playSFX('item'); setTimeout(() => setNewItem(null), 3000);
                     }
                 }
@@ -442,7 +474,6 @@
                     const dmg = fever ? 200 : 100; handleRaidDamage(dmg);
                     setAnimState('attack'); playSFX(CHARACTERS[playerKey].attackType); 
                     
-                    // 優化計分公式: 基礎分 + 速度獎勵 + 連擊
                     const basePoints = 100;
                     const speedBonus = timer * 5;
                     const feverMult = fever ? 1.5 : 1;
@@ -465,12 +496,9 @@
                             if (gameMode.includes('math')) newStats[playerKey].dailyMathLevel = dailyLevel;
                             else newStats[playerKey].dailyEnglishLevel = dailyLevel;
                             newStats[playerKey].dailyScore = score;
-                            
-                            // 更新歷史高分
                             if (score > newStats[playerKey].allTimeBest.score) {
                                 newStats[playerKey].allTimeBest = { score, date: new Date().toISOString().split('T')[0] };
                             }
-                            
                             saveAll(newStats); 
                             setTimeout(()=>setScreen('result'), 2000);
                         } else { setDailyLevel(l=>l+1); nextTurn(gameMode); }
@@ -488,6 +516,76 @@
             const hasHeal = allItems.some(i => myItems.includes(i.id) && i.type === 'skill_heal');
             const hasTime = allItems.some(i => myItems.includes(i.id) && i.type === 'skill_time');
 
+            const StickerBook = () => (
+                <div className="h-full bg-slate-900 p-6 overflow-y-auto">
+                    <div className="flex justify-between mb-4 text-white"><h2 className="text-2xl font-bold">📚 永久圖鑑</h2><button onClick={()=>setScreen('menu')} className="bg-gray-700 px-4 rounded">返回</button></div>
+                    <div className="grid grid-cols-4 gap-4">
+                        {allItems.map(item => {
+                            const owned = stats[playerKey].stickerBook && stats[playerKey].stickerBook.includes(item.id);
+                            return ( <div key={item.id} className={`p-2 rounded-xl text-center border-2 ${owned ? 'bg-white/20 border-yellow-400' : 'bg-black/40 border-gray-700 opacity-50 grayscale'}`}><div className="text-4xl mb-1">{item.icon}</div><div className="text-xs text-white">{owned ? item.name : '???'}</div></div> );
+                        })}
+                    </div>
+                </div>
+            );
+
+            const SettingsScreen = () => {
+                const [settingTab, setSettingTab] = useState('vocab');
+                const [settingChar, setSettingChar] = useState('daughter');
+                return (
+                    <div className="h-full bg-slate-900 p-6 overflow-y-auto z-20 text-white">
+                        <div className="flex justify-between mb-6"><h2 className="text-xl font-bold text-yellow-400">管理中心</h2><button onClick={()=>setScreen('menu')} className="bg-gray-700 px-4 rounded">退出</button></div>
+                        <div className="bg-white/5 p-4 rounded-xl mb-4">
+                            <h3 className="font-bold mb-2">☁️ 雲端同步</h3>
+                            {userObj ? <button onClick={async ()=>{await window.signOut(window.auth); setUserObj(null);}} className="bg-red-600 px-4 py-2 rounded font-bold w-full">登出: {userObj.email}</button> : <button onClick={handleLogin} className="bg-white text-black px-4 py-2 rounded font-bold w-full">Google 登入</button>}
+                        </div>
+                        <div className="flex gap-2 mb-4 bg-black/20 p-1 rounded-lg overflow-x-auto scrollbar-hide">{Object.values(CHARACTERS).filter(c=>c.id!=='mom').map(c => (<button key={c.id} onClick={()=>setSettingChar(c.id)} className={`flex-1 py-2 px-3 whitespace-nowrap rounded font-bold ${settingChar===c.id ? 'bg-indigo-600 text-white':'text-gray-400'}`}>{c.name}</button>))}</div>
+                        <div className="flex gap-2 mb-4"><button onClick={()=>setSettingTab('vocab')} className={`flex-1 py-2 rounded border border-white/10 ${settingTab==='vocab'?'bg-blue-600':'bg-white/5'}`}>📚 單字設定 (⭐重點)</button><button onClick={()=>setSettingTab('math')} className={`flex-1 py-2 rounded border border-white/10 ${settingTab==='math'?'bg-orange-600':'bg-white/5'}`}>🔢 數學難度</button></div>
+                        {settingTab === 'vocab' && <VocabSettings charKey={settingChar} />}
+                        {settingTab === 'math' && <MathSettings charKey={settingChar} />}
+                    </div>
+                );
+            };
+
+            const VocabSettings = ({ charKey }) => {
+                const [input, setInput] = useState({ word: '', mean: '', type: 'noun' });
+                const list = vocabMap[charKey] || [];
+                const add = () => { if(!input.word) return; const newItem = { ...input, isFocus: false }; const newList = [...list, newItem]; setVocabMap({ ...vocabMap, [charKey]: newList }); saveAll(null, { ...vocabMap, [charKey]: newList }); setInput({ word: '', mean: '', type: 'noun' }); };
+                const remove = (idx) => { const newList = [...list]; newList.splice(idx, 1); setVocabMap({ ...vocabMap, [charKey]: newList }); saveAll(null, { ...vocabMap, [charKey]: newList }); };
+                const toggleFocus = (idx) => { const newList = [...list]; newList[idx] = { ...newList[idx], isFocus: !newList[idx].isFocus }; setVocabMap({ ...vocabMap, [charKey]: newList }); saveAll(null, { ...vocabMap, [charKey]: newList }); };
+                return (
+                    <div className="bg-white/5 p-4 rounded-xl mt-4">
+                        <div className="flex gap-2 mb-2">
+                            <input value={input.word} onChange={e=>setInput({...input, word:e.target.value})} placeholder="英文" className="w-1/3 bg-black/40 p-2 rounded text-sm"/>
+                            <input value={input.mean} onChange={e=>setInput({...input, mean:e.target.value})} placeholder="中文" className="w-1/3 bg-black/40 p-2 rounded text-sm"/>
+                            <select value={input.type} onChange={e=>setInput({...input, type:e.target.value})} className="bg-black/40 p-2 rounded text-sm"><option value="noun">名詞</option><option value="verb">動詞</option><option value="adj">形容詞</option><option value="number">數字</option></select>
+                            <button onClick={add} className="bg-green-600 px-3 rounded"><LucideIcon name="plus" size={16}/></button>
+                        </div>
+                        <div className="max-h-60 overflow-y-auto space-y-2">
+                            {list.map((v, i) => (
+                                <div key={i} className={`flex justify-between items-center p-2 rounded ${v.isFocus ? 'bg-yellow-500/20 border border-yellow-500/50' : 'bg-black/30'}`}>
+                                    <div className="flex items-center gap-2"><button onClick={()=>toggleFocus(i)} className={`text-xl ${v.isFocus ? 'opacity-100' : 'opacity-30 grayscale'}`}>⭐</button><span className="font-bold text-blue-300">{v.word}</span><span className="text-xs text-gray-400">{v.mean}</span></div>
+                                    <button onClick={()=>remove(i)} className="text-gray-500 hover:text-red-500"><LucideIcon name="trash-2" size={16}/></button>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                );
+            };
+
+            const MathSettings = ({ charKey }) => {
+                const isDaughter = charKey === 'daughter';
+                const settings = mathSettings[charKey] || (isDaughter ? INITIAL_MATH_SETTINGS.daughter : INITIAL_MATH_SETTINGS.son);
+                const updateSlot = (idx, field, val) => { const newS = { ...mathSettings }; newS.daughter.slots[idx][field] = parseInt(val) || 0; setMathSettings(newS); saveAll(null, null, newS); };
+                const updateWeight = (key, val) => { const newS = { ...mathSettings }; if (!newS[charKey]) newS[charKey] = { weights: { ...INITIAL_MATH_SETTINGS.son.weights } }; newS[charKey].weights[key] = parseInt(val) || 0; setMathSettings(newS); saveAll(null, null, newS); };
+                if (isDaughter) {
+                    return (<div className="bg-white/5 p-4 rounded-xl mt-4 space-y-2">{settings.slots.map((s, i) => (<div key={i} className="flex items-center gap-2 bg-black/20 p-2 rounded"><span className="text-gray-400 font-bold">#{i+1}</span><input type="number" value={s.range} onChange={e=>updateSlot(i,'range',e.target.value)} className="w-16 bg-black/40 text-center rounded p-1"/><span className="text-xs">以內</span><input type="range" max="10" value={s.weight} onChange={e=>updateSlot(i,'weight',e.target.value)} className="flex-1"/><span className="w-4 text-center text-pink-400 font-bold">{s.weight}</span></div>))}</div>);
+                } else {
+                    const weights = settings.weights || INITIAL_MATH_SETTINGS.son.weights;
+                    const labels = { '2-digit-add-sub': '2位數加減', '3-digit-add-sub': '3位數加減', '1-digit-mult': '2位x1位乘', '2-digit-mult': '2位x2位乘', 'div-exact': '整除', 'div-remain': '餘數' };
+                    return (<div className="bg-white/5 p-4 rounded-xl mt-4 grid grid-cols-1 gap-2">{Object.keys(weights).map(k => (<div key={k} className="flex items-center justify-between bg-black/20 p-2 rounded"><span className="text-xs text-gray-300">{labels[k]}</span><div className="flex items-center gap-2 w-32"><input type="range" max="10" value={weights[k]} onChange={e=>updateWeight(k,e.target.value)} className="flex-1"/><span className="w-4 text-center text-blue-400 font-bold">{weights[k]}</span></div></div>))}</div>);
+                }
+            };
+
             return (
                 <div className={`w-full h-screen flex flex-col overflow-hidden relative transition-all duration-1000 ${fever ? 'fever-mode' : ''}`}>
                     {showHelp && <GameManual onClose={()=>setShowHelp(false)} />}
@@ -498,7 +596,7 @@
 
                     {screen === 'menu' && (
                         <div className="p-4 flex flex-col items-center justify-center h-full relative z-10 bg-indigo-900 text-white">
-                            <h1 className="text-4xl font-black text-yellow-400 mb-4 drop-shadow-lg">⚔️ 印家英雄榜</h1>
+                            <h1 className="text-4xl font-black text-yellow-400 mb-6 drop-shadow-lg">⚔️ 印家英雄榜</h1>
                             
                             <div className="w-full max-w-lg bg-red-900/80 p-2 rounded-xl mb-4 border-2 border-red-500 flex items-center gap-3">
                                 <div className="text-3xl animate-bounce">🐲</div>
@@ -534,7 +632,7 @@
                                 <button onClick={() => setScreen('sticker')} className="bg-white/5 px-3 py-1 rounded flex items-center gap-1"><LucideIcon name="book-open" size={14}/> 圖鑑</button>
                                 <button onClick={() => setShowLeaderboard(true)} className="bg-white/5 px-3 py-1 rounded flex items-center gap-1"><LucideIcon name="trophy" size={14}/> 排行</button>
                                 <button onClick={() => setShowHelp(true)} className="bg-white/5 px-3 py-1 rounded flex items-center gap-1"><LucideIcon name="info" size={14}/> 說明</button>
-                                <button onClick={() => {if(prompt("密碼")===PARENT_PASSWORD) setScreen('settings')}} className="bg-white/5 px-3 py-1 rounded flex items-center gap-1"><LucideIcon name="settings" size={14}/> 管理</button>
+                                <button onClick={enterSettings} className="bg-white/5 px-3 py-1 rounded flex items-center gap-1"><LucideIcon name="settings" size={14}/> 管理</button>
                             </div>
                         </div>
                     )}
@@ -559,7 +657,7 @@
                                         <span className="text-blue-300 text-xs font-bold uppercase bg-black/40 px-2 py-1 rounded">{gameMode.includes('math')?'MATH':`ENGLISH`}</span>
                                         {question.isListening ? (<div className="mt-4 text-4xl font-bold animate-pulse text-yellow-300 cursor-pointer" onClick={()=>speakWord(question.fullSentence)}>🔊 點擊聽題目</div>) : (<h2 className="text-4xl font-black mt-2 leading-tight">{gameMode.includes('math')?question.text:question.display}</h2>)}
                                     </div>
-                                    {gameMode.includes('english') && inputMode === 'select' ? (<div className="grid grid-cols-2 gap-3">{question.options.map(opt=><button key={opt} onClick={()=>handleAnswer(opt)} className="bg-white/10 p-4 rounded-xl font-bold text-xl border border-white/10 active:bg-indigo-600 transition-colors">{opt}</button>)}</div>) : (<div className="flex gap-2"><input value={userAnswer} onChange={e=>setUserAnswer(e.target.value)} className="flex-1 bg-black/50 border-2 border-white/20 rounded-xl p-3 text-2xl text-center outline-none focus:border-yellow-400 text-white" placeholder="輸入..." type={gameMode.includes('math')?'tel':'text'}/><button onClick={()=>handleAnswer(userAnswer)} className="bg-yellow-500 text-black px-6 rounded-xl font-black text-xl">GO</button></div>)}
+                                    {gameMode.includes('english') && inputMode === 'select' ? (<div className="grid grid-cols-2 gap-3">{question.options.map(opt=><button key={opt} onClick={()=>handleAnswer(opt)} className="bg-white/10 p-4 rounded-xl font-bold text-xl border border-white/10 active:bg-indigo-600 transition-colors">{opt}</button>)}</div>) : (<div className="flex gap-2"><input value={userAnswer} onChange={e=>setUserAnswer(e.target.value)} className="flex-1 bg-black/50 border-2 border-white/20 rounded-xl p-3 text-2xl text-center outline-none focus:border-yellow-400 text-white" placeholder="輸入..." type={gameMode.includes('math')?'tel':'text'}/><button onClick={()=>handleAnswer(userAnswer)} className="bg-yellow-500 text-black px-6 rounded-xl font-black text-xl shadow-lg active:scale-95">GO</button></div>)}
                                     {gameMode.includes('english') && <div className="mt-4 flex justify-center gap-2"><button onClick={()=>setInputMode('select')} className={`px-3 py-1 rounded-full text-xs font-bold ${inputMode==='select'?'bg-blue-600':'bg-white/10'}`}>選擇題</button><button onClick={()=>setInputMode('type')} className={`px-3 py-1 rounded-full text-xs font-bold ${inputMode==='type'?'bg-purple-600':'bg-white/10'}`}>拼字題</button></div>}
                                 </div>
                             </div>
@@ -568,8 +666,8 @@
 
                     {screen === 'sticker' && <StickerBook />}
                     {screen === 'result' && <div className="h-full flex flex-col items-center justify-center p-8 text-center bg-indigo-900 text-white"><div className="text-6xl mb-4">{dailyLevel%10===0?'🏆':'💀'}</div><h2 className="text-3xl font-bold mb-4">{dailyLevel%10===0?'挑戰成功！':'再接再厲'}</h2><div className="text-xl text-yellow-300 mb-4">本次得分: {score}</div><button onClick={()=>setScreen('menu')} className="bg-white text-black px-8 py-3 rounded-xl font-bold">返回</button></div>}
-                    {screen === 'vocab' && <div className="h-full p-4 overflow-y-auto bg-indigo-900 text-white"><button onClick={()=>setScreen('menu')} className="mb-4 bg-gray-700 px-3 py-1 rounded">返回</button><div className="grid grid-cols-2 gap-2">{(vocabMap[playerKey]||BASE_VOCAB).map((v,i)=><div key={i} onClick={()=>speakWord(v.word)} className="bg-white/10 p-2 rounded">{v.word} <span className="text-xs text-gray-400">{v.mean}</span></div>)}</div></div>}
-                    {screen === 'settings' && <div className="h-full p-4 bg-slate-900 text-white"><button onClick={()=>setScreen('menu')} className="mb-4 bg-gray-700 px-3 py-1 rounded">退出</button><div className="text-center text-gray-400">請確認 Firebase Config 是否已填入</div></div>}
+                    {screen === 'vocab' && <div className="h-full p-4 overflow-y-auto bg-indigo-900 text-white"><button onClick={()=>setScreen('menu')} className="mb-4 bg-gray-700 px-3 py-1 rounded">返回</button><div className="grid grid-cols-2 gap-2">{(vocabMap[playerKey]||BASE_VOCAB).map((v,i)=><div key={i} onClick={()=>speakWord(v.word)} className="bg-white/10 p-2 rounded border border-white/5">{v.word} <span className="text-xs text-gray-400">{v.mean}</span></div>)}</div></div>}
+                    {screen === 'settings' && <SettingsScreen />}
                 </div>
             );
         }
