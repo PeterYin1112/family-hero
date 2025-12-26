@@ -17,7 +17,7 @@
         import { getFirestore, doc, getDoc, setDoc, onSnapshot, updateDoc, increment } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
         import { getAuth, signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 
-        // --- 請確認您的 Firebase Config (請保留您原本填寫正確的那份) ---
+        // --- 請確認您的 Firebase Config (請填入正確資訊) ---
         const firebaseConfig = {
             apiKey: "AIzaSyCagXSigdL09-OK4G5jF20Hj3iXnRVQs-M",
             authDomain: "family-hero-f89f7.firebaseapp.com",
@@ -79,8 +79,13 @@
 </head>
 <body>
     <div id="root" class="flex h-screen w-full items-center justify-center text-xl font-bold">
-        ❄️ 冒險準備中...
+        ❄️ 冒險準備中... (V14 Repair)
     </div>
+
+    <!-- 緊急重置按鈕 -->
+    <button onclick="localStorage.clear(); window.location.reload();" style="position: fixed; top: 10px; left: 10px; z-index: 9999; background: red; color: white; padding: 5px 10px; border-radius: 5px; font-size: 12px; opacity: 0.5;">
+        緊急重置存檔
+    </button>
 
     <script type="text/babel">
         const { useState, useEffect, useRef } = React;
@@ -109,12 +114,15 @@
         ];
 
         const MONSTERS = ["👾","👽","🦖","🦕","🐙","🦑","🦂","🕷️","🦟","🪳","👹","👺","🐲","🐉"];
-        const INITIAL_STATS = { dailyMathLevel: 0, dailyEnglishLevel: 0, dailyScore: 0, earnedItems: [], monsterBook: [] };
-        const INITIAL_DB = { daughter: {...INITIAL_STATS}, son: {...INITIAL_STATS}, mom: {...INITIAL_STATS}, challenger: {...INITIAL_STATS} };
+        
+        // 安全的初始狀態生成器
+        const getInitialStat = () => ({ dailyMathLevel: 0, dailyEnglishLevel: 0, dailyScore: 0, earnedItems: [], monsterBook: [] });
+        const INITIAL_DB_STRUCTURE = { daughter: getInitialStat(), son: getInitialStat(), mom: getInitialStat(), challenger: getInitialStat() };
+        
         const PARENT_PASSWORD = "28825252";
         const FAMILY_PASSWORD = "168";
 
-        // --- 音效引擎強化版 ---
+        // --- 音效引擎 ---
         let audioCtx = null;
         let bgmInterval = null;
 
@@ -129,7 +137,6 @@
             const g=audioCtx.createGain(); 
             o.type=t; 
             o.frequency.value=f; 
-            // 增加音量係數
             g.gain.value=v * 2.0; 
             g.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime+d); 
             o.connect(g); 
@@ -148,7 +155,6 @@
         const playBGM = () => {
             if(bgmInterval) clearInterval(bgmInterval);
             if(!audioCtx) return;
-            // 簡單的背景節奏
             let note = 0;
             bgmInterval = setInterval(() => {
                 if(Math.random() > 0.7) playTone(220 + (note%3)*100, 'triangle', 0.05, 0.2);
@@ -160,7 +166,7 @@
 
         const speakWord = (text) => { 
             if ('speechSynthesis' in window) { 
-                window.speechSynthesis.cancel(); // 重要：取消之前的發音，避免卡住
+                window.speechSynthesis.cancel();
                 const u = new SpeechSynthesisUtterance(text); 
                 u.lang = 'en-US'; 
                 u.rate = 0.85; 
@@ -191,7 +197,7 @@
             const [screen, setScreen] = useState('menu');
             const [playerKey, setPlayerKey] = useState('daughter');
             const [gameMode, setGameMode] = useState('math');
-            const [stats, setStats] = useState(INITIAL_DB);
+            const [stats, setStats] = useState(INITIAL_DB_STRUCTURE); // 使用結構化初始值
             const [userObj, setUserObj] = useState(null);
             
             const [dailyLevel, setDailyLevel] = useState(1);
@@ -202,46 +208,66 @@
             const [question, setQuestion] = useState(null);
             const [userAnswer, setUserAnswer] = useState('');
             const [feedback, setFeedback] = useState(null);
-            const [inputMode, setInputMode] = useState('select'); // select or type
+            const [inputMode, setInputMode] = useState('select');
             const [showModeChoice, setShowModeChoice] = useState(false);
-            
             const [animState, setAnimState] = useState('idle');
             const [effectType, setEffectType] = useState(null);
-            
-            // Audio State
             const [audioEnabled, setAudioEnabled] = useState(false);
-            
             const timerRef = useRef(null);
 
-            // Firebase Sync
+            // --- 數據載入與修復 (Robust Data Loading) ---
             useEffect(() => {
-                const saved = JSON.parse(localStorage.getItem('fh_v13_sound'));
-                if (saved) setStats(saved);
-                if (window.auth) window.onAuthStateChanged(window.auth, async (u) => {
-                    setUserObj(u);
-                    if(u) {
-                        const snap = await window.getDoc(window.doc(window.db, "users", u.uid));
-                        if (snap.exists()) setStats(snap.data().stats);
+                try {
+                    const saved = JSON.parse(localStorage.getItem('fh_v14_repair'));
+                    if (saved) {
+                        // 強制合併，確保 key 存在，避免 undefined error
+                        const mergedStats = { ...INITIAL_DB_STRUCTURE };
+                        Object.keys(INITIAL_DB_STRUCTURE).forEach(role => {
+                            if (saved[role]) mergedStats[role] = { ...INITIAL_DB_STRUCTURE[role], ...saved[role] };
+                        });
+                        setStats(mergedStats);
                     }
-                });
+                    
+                    if (window.auth) {
+                        window.onAuthStateChanged(window.auth, async (u) => {
+                            setUserObj(u);
+                            if(u) {
+                                try {
+                                    const snap = await window.getDoc(window.doc(window.db, "users", u.uid));
+                                    if (snap.exists()) {
+                                        const d = snap.data();
+                                        if (d.stats) {
+                                            // 同樣進行深度合併修復
+                                            const mergedCloud = { ...INITIAL_DB_STRUCTURE };
+                                            Object.keys(INITIAL_DB_STRUCTURE).forEach(role => {
+                                                if (d.stats[role]) mergedCloud[role] = { ...INITIAL_DB_STRUCTURE[role], ...d.stats[role] };
+                                            });
+                                            setStats(mergedCloud);
+                                        }
+                                    }
+                                } catch (err) { console.error("Cloud load error", err); }
+                            }
+                        });
+                    }
+                } catch (e) {
+                    console.error("Critical Load Error", e);
+                    // 出錯時重置為預設值，避免白畫面
+                    setStats(INITIAL_DB_STRUCTURE);
+                }
             }, []);
 
             const saveAll = (newStats) => {
                 const updated = newStats || stats;
                 setStats(updated);
-                localStorage.setItem('fh_v13_sound', JSON.stringify(updated));
-                if (userObj && window.db) window.setDoc(window.doc(window.db, "users", userObj.uid), { stats: updated });
+                localStorage.setItem('fh_v14_repair', JSON.stringify(updated));
+                if (userObj && window.db) {
+                    try { window.setDoc(window.doc(window.db, "users", userObj.uid), { stats: updated }); } catch(e){}
+                }
             };
 
             const toggleAudio = () => {
-                if (!audioEnabled) {
-                    initAudio();
-                    setAudioEnabled(true);
-                    playBGM();
-                } else {
-                    stopBGM();
-                    setAudioEnabled(false);
-                }
+                if (!audioEnabled) { initAudio(); setAudioEnabled(true); playBGM(); } 
+                else { stopBGM(); setAudioEnabled(false); }
             };
 
             const generateQuestion = (mode) => {
@@ -253,33 +279,23 @@
                     const tmpl = SENTENCE_TEMPLATES[w.type][0];
                     const full = tmpl.text.replace('___', w.word);
                     const opts = BASE_VOCAB.filter(v=>v.word!==w.word).sort(()=>0.5-Math.random()).slice(0,3).map(v=>v.word);
-                    // 修正提示：只顯示句型翻譯，不顯示單字翻譯，避免直接洩題
                     return { text:tmpl.text.replace('___','_____'), fullSentence:full, answer:w.word, options:[w.word,...opts].sort(()=>0.5-Math.random()), time:30, wordObj:w, hint:tmpl.hint };
                 }
             };
 
             const handleStartClick = (mode) => {
-                if (mode === 'daily_english') {
-                    setShowModeChoice(true);
-                } else {
-                    startGame('math', 'select');
-                }
+                if (mode === 'daily_english') setShowModeChoice(true);
+                else startGame('math', 'select');
             };
 
             const startGame = (mode, iMode) => {
                 if (CHARACTERS[playerKey].needPwd && prompt("家人密碼 (168)") !== FAMILY_PASSWORD) return alert("密碼錯誤");
-                
-                // 強制嘗試啟動音效
                 if (!audioEnabled) toggleAudio();
-
                 const curLv = mode.includes('math') ? stats[playerKey].dailyMathLevel : stats[playerKey].dailyEnglishLevel;
-                // Lv.60 強制拼字模式檢查
                 const finalInputMode = (curLv >= 60 && mode.includes('english')) ? 'type' : iMode;
-                
                 setGameMode(mode); setInputMode(finalInputMode); setPlayerHp(100); 
                 setDailyLevel(curLv + 1);
-                nextTurn(mode); setScreen('game');
-                setShowModeChoice(false);
+                nextTurn(mode); setScreen('game'); setShowModeChoice(false);
             };
 
             const nextTurn = (mode) => {
@@ -294,117 +310,62 @@
             const handleAnswer = (val) => {
                 clearInterval(timerRef.current);
                 const isCorrect = val.toString().toLowerCase().trim() === question.answer.toLowerCase();
-                
                 if (isCorrect) {
-                    setAnimState('playerAttack');
-                    setEffectType(CHARACTERS[playerKey].attackType);
+                    setAnimState('playerAttack'); setEffectType(CHARACTERS[playerKey].attackType);
                     playSFX(CHARACTERS[playerKey].attackType === 'ice' ? 'ice' : 'hit');
                     setFeedback('correct');
-                    
-                    // 分數計算：拼字模式 1.5 倍
-                    const base = 100 + timer * 5;
-                    const bonus = inputMode === 'type' ? 1.5 : 1;
+                    const base = 100 + timer * 5; const bonus = inputMode === 'type' ? 1.5 : 1;
                     const pts = Math.round(base * bonus);
                     setScore(s => s + pts);
-                    
-                    if (question.wordObj) speakWord(question.fullSentence);
-                    
+                    if(question.wordObj) speakWord(question.fullSentence);
                     setTimeout(() => {
-                        const newStats = {...stats};
+                        const newStats = JSON.parse(JSON.stringify(stats)); // Deep Copy
                         if (gameMode.includes('math')) newStats[playerKey].dailyMathLevel = dailyLevel;
                         else newStats[playerKey].dailyEnglishLevel = dailyLevel;
                         newStats[playerKey].dailyScore += pts;
                         saveAll(newStats);
-                        
-                        if (dailyLevel % 5 === 0) setScreen('result');
-                        else { setDailyLevel(l=>l+1); nextTurn(gameMode); }
+                        if (dailyLevel % 5 === 0) setScreen('result'); else { setDailyLevel(l=>l+1); nextTurn(gameMode); }
                     }, 1200);
                 } else {
-                    setAnimState('hurt'); playSFX('hit'); setFeedback('wrong');
-                    setPlayerHp(h => Math.max(0, h - 34));
-                    setTimeout(() => {
-                        if (playerHp <= 34) setScreen('result'); else nextTurn(gameMode);
-                    }, 1000);
+                    setAnimState('hurt'); playSFX('hit'); setFeedback('wrong'); setPlayerHp(h => Math.max(0, h - 34));
+                    setTimeout(() => { if (playerHp <= 34) setScreen('result'); else nextTurn(gameMode); }, 1000);
                 }
             };
 
             return (
                 <div className={`w-full h-screen flex flex-col overflow-hidden relative ${CHARACTERS[playerKey].bg} transition-all duration-1000`}>
-                    
-                    {/* 音效啟動遮罩 (只在第一次出現) */}
+                    {/* 音效遮罩 */}
                     {screen === 'menu' && !audioEnabled && (
                         <div className="absolute inset-0 z-50 bg-black/90 flex items-center justify-center cursor-pointer" onClick={toggleAudio}>
-                            <div className="text-center animate-pulse">
-                                <div className="text-6xl mb-4 text-yellow-400">🔊</div>
-                                <h2 className="text-3xl font-black text-white">點擊開啟音效</h2>
-                                <p className="text-gray-400 mt-2">為了獲得最佳體驗，請開啟聲音！</p>
-                            </div>
+                            <div className="text-center animate-pulse"><div className="text-6xl mb-4 text-yellow-400">🔊</div><h2 className="text-3xl font-black text-white">點擊開啟音效</h2></div>
                         </div>
                     )}
 
                     {/* MENU */}
                     {screen === 'menu' && (
                         <div className="p-6 flex flex-col items-center justify-center h-full z-10 space-y-6">
-                            <div className="w-full flex justify-end px-4">
-                                <button onClick={toggleAudio} className="bg-black/30 p-2 rounded-full text-white">
-                                    {audioEnabled ? <LucideIcon name="volume-2" /> : <LucideIcon name="volume-x" />}
-                                </button>
-                            </div>
-
+                            <div className="w-full flex justify-end px-4"><button onClick={toggleAudio} className="bg-black/30 p-2 rounded-full text-white">{audioEnabled ? <LucideIcon name="volume-2" /> : <LucideIcon name="volume-x" />}</button></div>
                             <h1 className="text-4xl font-black text-yellow-400 drop-shadow-lg tracking-widest">印家英雄榜</h1>
-                            
-                            <div className="flex gap-4">
-                                {Object.values(CHARACTERS).map(c => (
-                                    <button key={c.id} onClick={()=>setPlayerKey(c.id)} className={`flex flex-col items-center p-3 rounded-2xl border-2 transition-all ${playerKey===c.id?'border-yellow-400 bg-white/20 scale-110 shadow-xl':'border-transparent opacity-50'}`}>
-                                        <div className="text-4xl anim-idle">{c.avatar}</div>
-                                        <div className="text-xs font-bold mt-2">{c.name}</div>
-                                    </button>
-                                ))}
-                            </div>
-
+                            <div className="flex gap-4">{Object.values(CHARACTERS).map(c => (<button key={c.id} onClick={()=>setPlayerKey(c.id)} className={`flex flex-col items-center p-3 rounded-2xl border-2 transition-all ${playerKey===c.id?'border-yellow-400 bg-white/20 scale-110 shadow-xl':'border-transparent opacity-50'}`}><div className="text-4xl anim-idle">{c.avatar}</div><div className="text-xs font-bold mt-2">{c.name}</div></button>))}</div>
                             <div className="bg-white/10 p-8 rounded-[3rem] w-full max-w-sm border-2 border-white/20 backdrop-blur-md text-center">
                                 <div className={`text-9xl mb-6 anim-idle ${CHARACTERS[playerKey].color}`}>{CHARACTERS[playerKey].avatar}</div>
                                 <div className="grid grid-cols-1 gap-4">
-                                    <button onClick={()=>handleStartClick('daily_math')} className="bg-orange-600 p-4 rounded-2xl font-bold flex items-center justify-between px-8 shadow-lg active:scale-95">
-                                        <div className="flex items-center gap-3"><span className="text-2xl">🧮</span> 數學挑戰</div>
-                                        <div className="text-xs bg-black/30 px-2 py-1 rounded">Lv.{stats[playerKey].dailyMathLevel}</div>
-                                    </button>
-                                    <button onClick={()=>handleStartClick('daily_english')} className="bg-blue-600 p-4 rounded-2xl font-bold flex items-center justify-between px-8 shadow-lg active:scale-95">
-                                        <div className="flex items-center gap-3"><span className="text-2xl">🗣️</span> 英文挑戰</div>
-                                        <div className="text-xs bg-black/30 px-2 py-1 rounded">Lv.{stats[playerKey].dailyEnglishLevel}</div>
-                                    </button>
+                                    <button onClick={()=>handleStartClick('daily_math')} className="bg-orange-600 p-4 rounded-2xl font-bold flex items-center justify-between px-8 shadow-lg active:scale-95"><div className="flex items-center gap-3"><span className="text-2xl">🧮</span> 數學挑戰</div><div className="text-xs bg-black/30 px-2 py-1 rounded">Lv.{stats[playerKey].dailyMathLevel}</div></button>
+                                    <button onClick={()=>handleStartClick('daily_english')} className="bg-blue-600 p-4 rounded-2xl font-bold flex items-center justify-between px-8 shadow-lg active:scale-95"><div className="flex items-center gap-3"><span className="text-2xl">🗣️</span> 英文挑戰</div><div className="text-xs bg-black/30 px-2 py-1 rounded">Lv.{stats[playerKey].dailyEnglishLevel}</div></button>
                                 </div>
                             </div>
-
-                            {/* 英文模式選擇彈窗 */}
                             {showModeChoice && (
                                 <div className="fixed inset-0 bg-black/80 flex items-center justify-center p-6 z-50 animate-pop">
                                     <div className="bg-slate-800 w-full max-w-md rounded-3xl p-6 border-2 border-blue-400">
                                         <h3 className="text-2xl font-bold text-center mb-6 text-blue-300">選擇英文戰鬥風格</h3>
-                                        {stats[playerKey].dailyEnglishLevel >= 60 ? (
-                                            <div className="text-center p-4 bg-red-900/50 rounded-xl mb-4 border border-red-500">
-                                                <div className="text-2xl mb-2">🔥 大師挑戰開啟！</div>
-                                                <p className="text-sm">您已達到 Lv.60 以上，為了成為真正的英語大師，系統已強制鎖定為「拼字模式」！</p>
-                                            </div>
-                                        ) : (
-                                            <div className="space-y-4">
-                                                <button onClick={()=>startGame('daily_english', 'select')} className="w-full bg-white/10 p-4 rounded-2xl border border-white/20 hover:bg-white/20 text-left">
-                                                    <div className="font-bold text-lg text-white">🟢 選擇題模式 (Easy)</div>
-                                                    <div className="text-xs text-gray-400">利：點擊速度快，適合練習聽力與認字。</div>
-                                                    <div className="text-xs text-gray-400">弊：對拼字記憶較弱，分數無加成。</div>
-                                                </button>
-                                                <button onClick={()=>startGame('daily_english', 'type')} className="w-full bg-blue-600/50 p-4 rounded-2xl border-2 border-blue-400 text-left">
-                                                    <div className="font-bold text-lg text-yellow-400">🔥 拼字題模式 (Hard)</div>
-                                                    <div className="text-xs text-blue-100">利：強化拼字記憶，獲得 1.5 倍分數加成！</div>
-                                                    <div className="text-xs text-blue-100">弊：難度較高，輸入速度較慢。</div>
-                                                </button>
-                                            </div>
-                                        )}
+                                        <div className="space-y-4">
+                                            {stats[playerKey].dailyEnglishLevel < 60 && <button onClick={()=>startGame('daily_english', 'select')} className="w-full bg-white/10 p-4 rounded-2xl border border-white/20 hover:bg-white/20 text-left"><div className="font-bold text-lg text-white">🟢 選擇題模式 (Easy)</div><div className="text-xs text-gray-400">利：點擊速度快。</div></button>}
+                                            <button onClick={()=>startGame('daily_english', 'type')} className="w-full bg-blue-600/50 p-4 rounded-2xl border-2 border-blue-400 text-left"><div className="font-bold text-lg text-yellow-400">🔥 拼字題模式 (Hard)</div><div className="text-xs text-blue-100">1.5 倍分數加成！</div></button>
+                                        </div>
                                         <button onClick={()=>setShowModeChoice(false)} className="mt-6 w-full py-2 text-gray-400">返回</button>
                                     </div>
                                 </div>
                             )}
-
                             <div className="flex gap-4 text-sm text-gray-400"><button onClick={()=>{if(prompt("密碼")===PARENT_PASSWORD) setScreen('settings')}} className="hover:text-white">⚙️ 管理中心</button></div>
                         </div>
                     )}
@@ -412,108 +373,24 @@
                     {/* GAME */}
                     {screen === 'game' && (
                         <div className="h-full flex flex-col relative z-10">
-                            {/* HUD */}
                             <div className="p-4 flex justify-between items-center bg-black/40 backdrop-blur-md">
-                                <div className="flex items-center gap-3">
-                                    <div className="text-3xl">{CHARACTERS[playerKey].avatar}</div>
-                                    <div className="w-24 h-4 bg-gray-700 rounded-full overflow-hidden border border-white/20">
-                                        <div className="h-full bg-green-500 transition-all duration-500" style={{width: playerHp+'%'}} />
-                                    </div>
-                                </div>
-                                <div className="text-center">
-                                    <div className="text-xs font-bold text-yellow-400 tracking-widest">LEVEL {dailyLevel}</div>
-                                    <div className={`text-4xl font-mono font-bold ${timer<5?'text-red-500 animate-pulse':''}`}>{timer}</div>
-                                </div>
+                                <div className="flex items-center gap-3"><div className="text-3xl">{CHARACTERS[playerKey].avatar}</div><div className="w-24 h-4 bg-gray-700 rounded-full overflow-hidden border border-white/20"><div className="h-full bg-green-500 transition-all duration-500" style={{width: playerHp+'%'}} /></div></div>
+                                <div className="text-center"><div className="text-xs font-bold text-yellow-400 tracking-widest">LEVEL {dailyLevel}</div><div className={`text-4xl font-mono font-bold ${timer<5?'text-red-500 animate-pulse':''}`}>{timer}</div></div>
                                 <div className="text-4xl">👹</div>
                             </div>
-
-                            {/* Battle Area */}
                             <div className={`flex-1 relative flex items-center justify-between px-8 sm:px-20 overflow-hidden ${animState==='hurt'?'shake-active':''}`}>
-                                {/* Hero */}
-                                <div className={`transition-transform duration-200 ${animState==='playerAttack'?'translate-x-20 scale-110':''}`}>
-                                    <FullBodyChar charId={playerKey} items={[]} isAnimating={animState} />
-                                </div>
-
-                                {/* Effects */}
-                                {effectType === 'ice' && <div className="effect-ice"></div>}
-                                {effectType === 'beetle' && <div className="effect-crush">🪲</div>}
-
-                                {/* Monster */}
+                                <div className={`transition-transform duration-200 ${animState==='playerAttack'?'translate-x-20 scale-110':''}`}><FullBodyChar charId={playerKey} items={[]} isAnimating={animState} /></div>
+                                {effectType === 'ice' && <div className="effect-ice"></div>}{effectType === 'beetle' && <div className="effect-crush">🪲</div>}
                                 <div className={`text-9xl anim-idle transition-all duration-300 ${animState==='playerAttack'?'anim-damage opacity-50':''}`}>{MONSTERS[dailyLevel % MONSTERS.length]}</div>
                             </div>
-
-                            {/* Question UI */}
                             <div className="bg-slate-900/90 p-6 rounded-t-[3rem] border-t-2 border-white/10 pb-12 shadow-2xl">
                                 <div className="text-center mb-6">
-                                    <div className="text-xs font-bold text-blue-400 mb-2 uppercase tracking-tighter">
-                                        {gameMode.includes('math') ? 'Mathematics' : `English Mode: ${inputMode==='type'?'Spelling (+50%)':'Choice'}`}
-                                    </div>
-                                    
-                                    {/* 點擊題目重聽功能 */}
-                                    {gameMode.includes('english') ? (
-                                        <div 
-                                            onClick={() => speakWord(question.fullSentence)}
-                                            className="cursor-pointer active:scale-95 transition-transform bg-white/5 p-4 rounded-2xl border border-white/10 flex items-center justify-center gap-3"
-                                        >
-                                            <LucideIcon name="volume-2" className="text-yellow-400 w-6 h-6 animate-pulse"/>
-                                            <div>
-                                                <h2 className="text-3xl font-black">{question.text}</h2>
-                                                <div className="text-sm text-gray-400 mt-1">{question.hint} (點擊重聽)</div>
-                                            </div>
-                                        </div>
-                                    ) : (
-                                        <h2 className="text-3xl font-black mb-1">{question.text}</h2>
-                                    )}
+                                    <div className="text-xs font-bold text-blue-400 mb-2 uppercase tracking-tighter">{gameMode.includes('math')?'MATH':`ENGLISH`}</div>
+                                    {gameMode.includes('english') ? (<div onClick={() => speakWord(question.fullSentence)} className="cursor-pointer active:scale-95 transition-transform bg-white/5 p-4 rounded-2xl border border-white/10 flex items-center justify-center gap-3"><LucideIcon name="volume-2" className="text-yellow-400 w-6 h-6 animate-pulse"/><div><h2 className="text-3xl font-black">{question.text}</h2><div className="text-sm text-gray-400 mt-1">{question.hint} (點擊重聽)</div></div></div>) : (<h2 className="text-3xl font-black mb-1">{question.text}</h2>)}
                                 </div>
-
-                                {inputMode === 'select' ? (
-                                    <div className="grid grid-cols-2 gap-4 max-w-md mx-auto">
-                                        {question.options.map(o => (
-                                            <button key={o} onClick={()=>handleAnswer(o)} className="bg-white/10 p-5 rounded-2xl font-bold text-xl border-2 border-white/5 active:bg-blue-600 transition-colors">
-                                                {o}
-                                            </button>
-                                        ))}
-                                    </div>
-                                ) : (
-                                    <div className="flex flex-col gap-4 max-w-md mx-auto">
-                                        <input 
-                                            value={userAnswer}
-                                            onChange={e=>setUserAnswer(e.target.value)}
-                                            onKeyDown={e=>e.key==='Enter' && handleAnswer(userAnswer)}
-                                            className="w-full bg-black/60 border-2 border-white/20 p-5 text-3xl rounded-2xl text-center outline-none text-white font-bold"
-                                            placeholder="拼出單字..."
-                                            autoFocus
-                                            autoCapitalize="none"
-                                            autoCorrect="off"
-                                            spellCheck="false"
-                                            inputMode="text"
-                                        />
-                                        <button onClick={()=>handleAnswer(userAnswer)} className="bg-yellow-400 text-black py-4 rounded-2xl font-black text-xl shadow-lg active:scale-95">
-                                            發動攻擊 (GO!)
-                                        </button>
-                                    </div>
-                                )}
-                                
-                                {feedback && (
-                                    <div className={`absolute inset-0 flex items-center justify-center bg-black/60 z-50 pointer-events-none rounded-t-[3rem]`}>
-                                        <div className={`text-9xl font-black ${feedback==='correct'?'text-green-500':'text-red-500'} pop-in`}>
-                                            {feedback==='correct' ? '⭕' : '❌'}
-                                        </div>
-                                    </div>
-                                )}
+                                {inputMode === 'select' ? (<div className="grid grid-cols-2 gap-4 max-w-md mx-auto">{question.options.map(o => (<button key={o} onClick={()=>handleAnswer(o)} className="bg-white/10 p-5 rounded-2xl font-bold text-xl border-2 border-white/5 active:bg-blue-600 transition-colors">{o}</button>))}</div>) : (<div className="flex flex-col gap-4 max-w-md mx-auto"><input value={userAnswer} onChange={e=>setUserAnswer(e.target.value)} onKeyDown={e=>e.key==='Enter' && handleAnswer(userAnswer)} className="w-full bg-black/60 border-2 border-white/20 p-5 text-3xl rounded-2xl text-center outline-none text-white font-bold" placeholder="拼出單字..." autoFocus autoCapitalize="none" autoCorrect="off" spellCheck="false" inputMode="text"/><button onClick={()=>handleAnswer(userAnswer)} className="bg-yellow-400 text-black py-4 rounded-2xl font-black text-xl shadow-lg active:scale-95">攻擊 (GO!)</button></div>)}
+                                {feedback && <div className={`absolute inset-0 flex items-center justify-center bg-black/60 z-50 pointer-events-none rounded-t-[3rem]`}><div className={`text-9xl font-black ${feedback==='correct'?'text-green-500':'text-red-500'} pop-in`}>{feedback==='correct'?'⭕':'❌'}</div></div>}
                             </div>
-                        </div>
-                    )}
-
-                    {/* RESULT */}
-                    {screen === 'result' && (
-                        <div className="h-full flex flex-col items-center justify-center p-8 bg-slate-900 text-center animate-pop">
-                            {playerHp > 0 ? <div className="text-9xl mb-6">🏆</div> : <div className="text-9xl mb-6">💀</div>}
-                            <h2 className="text-4xl font-black text-yellow-400 mb-4">{playerHp > 0 ? '大獲全勝！' : '再接再厲！'}</h2>
-                            <p className="text-gray-400 mb-10">達成等級：Lv.{dailyLevel}</p>
-                            <button onClick={()=>setScreen('menu')} className="bg-white text-black px-16 py-5 rounded-3xl font-black text-2xl shadow-2xl hover:scale-105 active:scale-95 transition-all">
-                                返回基地
-                            </button>
                         </div>
                     )}
 
@@ -525,6 +402,16 @@
                                 <h3 className="font-bold mb-2">☁️ 雲端同步</h3>
                                 {userObj ? <button onClick={async ()=>{await window.signOut(window.auth); setUserObj(null);}} className="bg-red-600 px-4 py-2 rounded font-bold w-full">登出: {userObj.email}</button> : <button onClick={handleLogin} className="bg-white text-black px-4 py-2 rounded font-bold w-full">Google 登入</button>}
                             </div>
+                        </div>
+                    )}
+
+                    {/* RESULT */}
+                    {screen === 'result' && (
+                        <div className="h-full flex flex-col items-center justify-center p-8 bg-slate-900 text-center animate-pop">
+                            {playerHp > 0 ? <div className="text-9xl mb-6">🏆</div> : <div className="text-9xl mb-6">💀</div>}
+                            <h2 className="text-4xl font-black text-yellow-400 mb-4">{playerHp > 0 ? '大獲全勝！' : '再接再厲！'}</h2>
+                            <p className="text-gray-400 mb-10">達成等級：Lv.{dailyLevel}</p>
+                            <button onClick={()=>setScreen('menu')} className="bg-white text-black px-16 py-5 rounded-3xl font-black text-2xl shadow-2xl hover:scale-105 active:scale-95 transition-all">返回基地</button>
                         </div>
                     )}
                 </div>
