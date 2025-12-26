@@ -17,7 +17,7 @@
         import { getFirestore, doc, getDoc, setDoc, onSnapshot, updateDoc, increment } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
         import { getAuth, signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 
-        // --- 請確認您的 Firebase Config (請填入正確資訊) ---
+        // --- 請確認您的 Firebase Config ---
         const firebaseConfig = {
             apiKey: "AIzaSyCagXSigdL09-OK4G5jF20Hj3iXnRVQs-M",
             authDomain: "family-hero-f89f7.firebaseapp.com",
@@ -29,14 +29,20 @@
         };
 
         try {
-            const app = initializeApp(firebaseConfig);
-            window.db = getFirestore(app);
-            window.auth = getAuth(app);
-            window.provider = new GoogleAuthProvider();
-            window.doc = doc; window.getDoc = getDoc; window.setDoc = setDoc; 
-            window.onSnapshot = onSnapshot; window.updateDoc = updateDoc; window.increment = increment;
-            window.signInWithPopup = signInWithPopup; window.signOut = signOut; window.onAuthStateChanged = onAuthStateChanged;
-        } catch (e) { console.error("Firebase Error", e); }
+            // 簡單檢查是否已填寫 Config，避免報錯
+            if (firebaseConfig.apiKey.includes("AIzaSy")) {
+                const app = initializeApp(firebaseConfig);
+                window.db = getFirestore(app);
+                window.auth = getAuth(app);
+                window.provider = new GoogleAuthProvider();
+                window.doc = doc; window.getDoc = getDoc; window.setDoc = setDoc; 
+                window.onSnapshot = onSnapshot; window.updateDoc = updateDoc; window.increment = increment;
+                window.signInWithPopup = signInWithPopup; window.signOut = signOut; window.onAuthStateChanged = onAuthStateChanged;
+                console.log("🔥 Firebase Ready");
+            } else {
+                console.log("⚠️ Firebase Config 未填寫，將以單機模式運行");
+            }
+        } catch (e) { console.error("Firebase Init Error", e); }
     </script>
 
     <style>
@@ -73,23 +79,47 @@
         .arm-r { right: -6px; top: 5px; transform: rotate(-20deg); }
         .leg-l { left: 8px; bottom: -20px; height: 32px; background: #334155; }
         .leg-r { right: 8px; bottom: -20px; height: 32px; background: #334155; }
+        
+        .slot-hat { position: absolute; top: -20px; left: 50%; transform: translateX(-50%); font-size: 2rem; z-index: 20; filter: drop-shadow(0 2px 2px rgba(0,0,0,0.5)); }
+        .slot-weapon { position: absolute; top: 30px; right: -25px; font-size: 2rem; z-index: 20; transform: rotate(-15deg); filter: drop-shadow(0 0 5px gold); }
+        .slot-pet { position: absolute; bottom: 0; left: -40px; font-size: 1.8rem; animation: idle-float 3s infinite; }
 
         input:focus { border-color: #facc15; box-shadow: 0 0 15px rgba(250, 204, 21, 0.4); }
     </style>
 </head>
 <body>
     <div id="root" class="flex h-screen w-full items-center justify-center text-xl font-bold">
-        ❄️ 冒險準備中... (V14 Repair)
+        <div class="animate-pulse">🚀 遊戲載入中...</div>
     </div>
 
-    <!-- 緊急重置按鈕 -->
-    <button onclick="localStorage.clear(); window.location.reload();" style="position: fixed; top: 10px; left: 10px; z-index: 9999; background: red; color: white; padding: 5px 10px; border-radius: 5px; font-size: 12px; opacity: 0.5;">
-        緊急重置存檔
-    </button>
-
     <script type="text/babel">
-        const { useState, useEffect, useRef } = React;
+        const { useState, useEffect, useRef, Component } = React;
 
+        // --- 錯誤邊界 (Error Boundary) ---
+        class ErrorBoundary extends Component {
+            constructor(props) { super(props); this.state = { hasError: false }; }
+            static getDerivedStateFromError(error) { return { hasError: true }; }
+            componentDidCatch(error, errorInfo) { console.error("Game Crashed:", error, errorInfo); }
+            render() {
+                if (this.state.hasError) {
+                    return (
+                        <div className="h-screen w-full flex flex-col items-center justify-center bg-red-900 text-white p-8 text-center">
+                            <h1 className="text-4xl font-bold mb-4">⚠️ 哎呀！遊戲卡住了</h1>
+                            <p className="mb-6">可能是存檔資料發生了衝突。</p>
+                            <button 
+                                onClick={() => { localStorage.clear(); window.location.reload(); }}
+                                className="bg-white text-red-900 px-8 py-4 rounded-2xl font-bold text-xl shadow-lg active:scale-95"
+                            >
+                                重置存檔並修復
+                            </button>
+                        </div>
+                    );
+                }
+                return this.props.children;
+            }
+        }
+
+        // --- 核心資料 ---
         const CHARACTERS = { 
             daughter: { id: 'daughter', name: '冰雪女王榕', avatar: '👸', theme: 'princess', color: 'text-cyan-300', bg: 'bg-ice-castle', attackType: 'ice', needPwd: true }, 
             son: { id: 'son', name: '甲蟲王者希', avatar: '👦', theme: 'hero', color: 'text-green-400', bg: 'bg-beetle-forest', attackType: 'beetle', needPwd: true }, 
@@ -113,16 +143,30 @@
             { word: "happy", type: "adj", mean: "快樂" }, { word: "red", type: "adj", mean: "紅" }
         ];
 
+        const NUMBERS_1_10 = [{ word: "one", type: "number", mean: "一", isFocus:true }, { word: "two", type: "number", mean: "二", isFocus:true }, { word: "three", type: "number", mean: "三", isFocus:true }, { word: "four", type: "number", mean: "四", isFocus:true }, { word: "five", type: "number", mean: "五", isFocus:true }, { word: "six", type: "number", mean: "六", isFocus:true }, { word: "seven", type: "number", mean: "七", isFocus:true }, { word: "eight", type: "number", mean: "八", isFocus:true }, { word: "nine", type: "number", mean: "九", isFocus:true }, { word: "ten", type: "number", mean: "十", isFocus:true }];
+        const BROTHER_EXTRAS = [{ word: "tired", type: "adj", mean: "累的", isFocus:true }, { word: "angry", type: "adj", mean: "生氣的", isFocus:true }, { word: "strong", type: "adj", mean: "強壯的", isFocus:true }, { word: "thin", type: "adj", mean: "瘦的", isFocus:true }, { word: "short", type: "adj", mean: "短/矮的", isFocus:true }, { word: "tall", type: "adj", mean: "高的", isFocus:true }];
+
+        const ITEMS_DB = {
+            princess: {
+                math: [{ id: 'pm1', icon: '🪄', type: 'weapon', effect: 'magic' }, { id: 'pm2', icon: '👑', type: 'head' }, { id: 'pm3', icon: '🧚‍♀️', type: 'pet' }, { id: 'pm4', icon: '🛡️', type: 'shield' }, { id: 'pm5', icon: '🧪', type: 'skill_heal', name:'聖水' }],
+                english: [{ id: 'pe1', icon: '🌟', type: 'weapon', effect: 'magic' }, { id: 'pe2', icon: '👒', type: 'head' }, { id: 'pe3', icon: '🦄', type: 'pet' }, { id: 'pe4', icon: '📖', type: 'shield' }, { id: 'pe5', icon: '⏳', type: 'skill_time', name:'懷錶' }]
+            },
+            hero: {
+                math: [{ id: 'hm1', icon: '⚔️', type: 'weapon', effect: 'slash' }, { id: 'hm2', icon: '⛑️', type: 'head' }, { id: 'hm3', icon: '🐲', type: 'pet' }, { id: 'hm4', icon: '🛡️', type: 'shield' }, { id: 'hm5', icon: '🍖', type: 'skill_heal', name:'烤肉' }],
+                english: [{ id: 'he1', icon: '🗡️', type: 'weapon', effect: 'slash' }, { id: 'he2', icon: '🧢', type: 'head' }, { id: 'he3', icon: '🐺', type: 'pet' }, { id: 'he4', icon: '🛡️', type: 'shield' }, { id: 'he5', icon: '⏰', type: 'skill_time', name:'鬧鐘' }]
+            }
+        };
+
         const MONSTERS = ["👾","👽","🦖","🦕","🐙","🦑","🦂","🕷️","🦟","🪳","👹","👺","🐲","🐉"];
         
-        // 安全的初始狀態生成器
+        // 安全的初始化資料
         const getInitialStat = () => ({ dailyMathLevel: 0, dailyEnglishLevel: 0, dailyScore: 0, earnedItems: [], monsterBook: [] });
-        const INITIAL_DB_STRUCTURE = { daughter: getInitialStat(), son: getInitialStat(), mom: getInitialStat(), challenger: getInitialStat() };
+        const INITIAL_STATS = { daughter: getInitialStat(), son: getInitialStat(), mom: getInitialStat(), challenger: getInitialStat() };
         
+        const INITIAL_MATH_SETTINGS = { daughter: { slots: [{ range: 10, weight: 5 }, { range: 20, weight: 3 }, { range: 50, weight: 2 }] }, son: { weights: { '2-digit-add-sub': 5, '3-digit-add-sub': 2, '1-digit-mult': 3, '2-digit-mult': 1, 'div-exact': 2, 'div-remain': 1 } }, challenger: { weights: { '2-digit-add-sub': 5, '3-digit-add-sub': 2, '1-digit-mult': 3, '2-digit-mult': 1, 'div-exact': 2, 'div-remain': 1 } } };
         const PARENT_PASSWORD = "28825252";
         const FAMILY_PASSWORD = "168";
 
-        // --- 音效引擎 ---
         let audioCtx = null;
         let bgmInterval = null;
 
@@ -164,16 +208,7 @@
 
         const stopBGM = () => { if(bgmInterval) clearInterval(bgmInterval); };
 
-        const speakWord = (text) => { 
-            if ('speechSynthesis' in window) { 
-                window.speechSynthesis.cancel();
-                const u = new SpeechSynthesisUtterance(text); 
-                u.lang = 'en-US'; 
-                u.rate = 0.85; 
-                u.volume = 1.0;
-                window.speechSynthesis.speak(u); 
-            } 
-        };
+        const speakWord = (text) => { if ('speechSynthesis' in window) { window.speechSynthesis.cancel(); const u = new SpeechSynthesisUtterance(text); u.lang = 'en-US'; u.rate = 0.85; u.volume = 1.0; window.speechSynthesis.speak(u); } };
 
         const LucideIcon = ({ name }) => {
             const [Icon, setIcon] = useState(null);
@@ -183,12 +218,24 @@
 
         const FullBodyChar = ({ charId, items, isAnimating }) => {
             const char = CHARACTERS[charId];
+            const theme = char.theme;
+            const allItems = [...ITEMS_DB.princess.math, ...ITEMS_DB.princess.english, ...ITEMS_DB.hero.math, ...ITEMS_DB.hero.english];
+            const myGear = allItems.filter(i => items && items.includes(i.id));
+            const hat = myGear.find(i => i.type === 'head');
+            const weapon = myGear.find(i => i.type === 'weapon');
+            const shield = myGear.find(i => i.type === 'shield');
+            const pet = myGear.find(i => i.type === 'pet');
+
             return (
                 <div className={`char-container transition-transform duration-200 ${isAnimating === 'attack' ? 'translate-x-10' : ''} ${isAnimating === 'hurt' ? 'animate-shake' : ''}`}>
+                    {hat && <div className="slot-hat">{hat.icon}</div>}
                     <div className="char-head">{char.avatar}</div>
-                    <div className={`char-body ${char.theme}`}>
+                    <div className={`char-body ${theme}`}>
                         <div className="char-limb arm-l"></div><div className="char-limb arm-r"></div><div className="char-limb leg-l"></div><div className="char-limb leg-r"></div>
                     </div>
+                    {weapon && <div className="slot-weapon">{weapon.icon}</div>}
+                    {shield && <div className="slot-shield">{shield.icon}</div>}
+                    {pet && <div className="slot-pet">{pet.icon}</div>}
                 </div>
             );
         };
@@ -196,8 +243,11 @@
         function App() {
             const [screen, setScreen] = useState('menu');
             const [playerKey, setPlayerKey] = useState('daughter');
+            const [momMode, setMomMode] = useState('daughter');
             const [gameMode, setGameMode] = useState('math');
-            const [stats, setStats] = useState(INITIAL_DB_STRUCTURE); // 使用結構化初始值
+            const [stats, setStats] = useState(INITIAL_STATS);
+            const [vocabMap, setVocabMap] = useState({ daughter: [], son: [], mom: [], challenger: [] });
+            const [mathSettings, setMathSettings] = useState(INITIAL_MATH_SETTINGS);
             const [userObj, setUserObj] = useState(null);
             
             const [dailyLevel, setDailyLevel] = useState(1);
@@ -215,19 +265,42 @@
             const [audioEnabled, setAudioEnabled] = useState(false);
             const timerRef = useRef(null);
 
-            // --- 數據載入與修復 (Robust Data Loading) ---
+            const getInitialVocab = (role) => {
+                let list = [...BASE_VOCAB];
+                if (role === 'daughter' || role === 'son') list = [...list, ...NUMBERS_1_10];
+                if (role === 'son') {
+                    list = [...list, ...BROTHER_EXTRAS];
+                    list = list.map(v => (['happy','sad'].includes(v.word) ? { ...v, isFocus: true } : v));
+                }
+                const unique = []; const map = new Map();
+                for (const item of list) { if(!map.has(item.word)){ map.set(item.word, true); unique.push(item); } else if (item.isFocus) { const idx = unique.findIndex(u => u.word === item.word); unique[idx] = item; } }
+                return unique;
+            };
+
+            // --- Robust Data Loading ---
             useEffect(() => {
                 try {
-                    const saved = JSON.parse(localStorage.getItem('fh_v14_repair'));
+                    // Force reset vocab maps to default first to avoid empty screen
+                    const defaultVocab = { 
+                        daughter: getInitialVocab('daughter'), 
+                        son: getInitialVocab('son'), 
+                        mom: getInitialVocab('mom'), 
+                        challenger: getInitialVocab('challenger') 
+                    };
+                    setVocabMap(defaultVocab);
+
+                    const saved = JSON.parse(localStorage.getItem('fh_v15_stable'));
                     if (saved) {
-                        // 強制合併，確保 key 存在，避免 undefined error
-                        const mergedStats = { ...INITIAL_DB_STRUCTURE };
-                        Object.keys(INITIAL_DB_STRUCTURE).forEach(role => {
-                            if (saved[role]) mergedStats[role] = { ...INITIAL_DB_STRUCTURE[role], ...saved[role] };
+                        // Merge saved data safely
+                        const safeStats = { ...INITIAL_STATS };
+                        Object.keys(INITIAL_STATS).forEach(role => {
+                            if (saved.stats && saved.stats[role]) safeStats[role] = { ...INITIAL_STATS[role], ...saved.stats[role] };
                         });
-                        setStats(mergedStats);
+                        setStats(safeStats);
+                        if (saved.vocabMap) setVocabMap(prev => ({ ...prev, ...saved.vocabMap }));
+                        if (saved.mathSettings) setMathSettings(saved.mathSettings);
                     }
-                    
+
                     if (window.auth) {
                         window.onAuthStateChanged(window.auth, async (u) => {
                             setUserObj(u);
@@ -236,65 +309,65 @@
                                     const snap = await window.getDoc(window.doc(window.db, "users", u.uid));
                                     if (snap.exists()) {
                                         const d = snap.data();
-                                        if (d.stats) {
-                                            // 同樣進行深度合併修復
-                                            const mergedCloud = { ...INITIAL_DB_STRUCTURE };
-                                            Object.keys(INITIAL_DB_STRUCTURE).forEach(role => {
-                                                if (d.stats[role]) mergedCloud[role] = { ...INITIAL_DB_STRUCTURE[role], ...d.stats[role] };
-                                            });
-                                            setStats(mergedCloud);
-                                        }
+                                        if (d.stats) setStats(d.stats); // Simplified merge for cloud
                                     }
-                                } catch (err) { console.error("Cloud load error", err); }
+                                } catch(e) { console.warn("Cloud load warning", e); }
                             }
                         });
                     }
                 } catch (e) {
-                    console.error("Critical Load Error", e);
-                    // 出錯時重置為預設值，避免白畫面
-                    setStats(INITIAL_DB_STRUCTURE);
+                    console.error("Critical Init Error", e);
+                    // Critical failure? Fallback to defaults
                 }
             }, []);
 
             const saveAll = (newStats) => {
                 const updated = newStats || stats;
                 setStats(updated);
-                localStorage.setItem('fh_v14_repair', JSON.stringify(updated));
+                const dataToSave = { stats: updated, vocabMap, mathSettings };
+                localStorage.setItem('fh_v15_stable', JSON.stringify(dataToSave));
                 if (userObj && window.db) {
-                    try { window.setDoc(window.doc(window.db, "users", userObj.uid), { stats: updated }); } catch(e){}
+                    try { window.setDoc(window.doc(window.db, "users", userObj.uid), dataToSave); } catch(e){}
                 }
             };
 
-            const toggleAudio = () => {
-                if (!audioEnabled) { initAudio(); setAudioEnabled(true); playBGM(); } 
-                else { stopBGM(); setAudioEnabled(false); }
-            };
+            const toggleAudio = () => { if (!audioEnabled) { initAudio(); setAudioEnabled(true); playBGM(); } else { stopBGM(); setAudioEnabled(false); } };
 
-            const generateQuestion = (mode) => {
-                if (mode === 'math') {
-                    const n1 = Math.floor(Math.random()*20)+1; const n2 = Math.floor(Math.random()*20)+1;
+            const pickWeighted = (opts) => { let total = opts.reduce((a,c)=>a+c.weight,0); let r = Math.random()*total; for(let o of opts){ if(r<o.weight)return o.item; r-=o.weight; } return opts[0].item; };
+            
+            const generateMathQuestion = (role) => {
+                const sRole = role === 'challenger' ? 'son' : role;
+                if (sRole === 'daughter') {
+                    const range = pickWeighted(mathSettings.daughter.slots.map(s => ({ item: s.range, weight: s.weight })));
+                    const n1 = Math.floor(Math.random()*range)+1; const n2 = Math.floor(Math.random()*range)+1;
                     return Math.random()>0.5 ? {text:`${n1}+${n2}=?`, answer:(n1+n2).toString(), time:30} : {text:`${Math.max(n1,n2)}-${Math.min(n1,n2)}=?`, answer:(Math.max(n1,n2)-Math.min(n1,n2)).toString(), time:30};
                 } else {
-                    const w = BASE_VOCAB[Math.floor(Math.random()*BASE_VOCAB.length)];
-                    const tmpl = SENTENCE_TEMPLATES[w.type][0];
-                    const full = tmpl.text.replace('___', w.word);
-                    const opts = BASE_VOCAB.filter(v=>v.word!==w.word).sort(()=>0.5-Math.random()).slice(0,3).map(v=>v.word);
-                    return { text:tmpl.text.replace('___','_____'), fullSentence:full, answer:w.word, options:[w.word,...opts].sort(()=>0.5-Math.random()), time:30, wordObj:w, hint:tmpl.hint };
+                    const settings = mathSettings[sRole] || mathSettings.son;
+                    const mode = pickWeighted(Object.keys(settings.weights).map(k=>({item:k, weight:settings.weights[k]})));
+                    if(mode.includes('mult')) { const n1=Math.floor(Math.random()*9)+1; const n2=Math.floor(Math.random()*9)+1; return {text:`${n1}x${n2}=?`, answer:(n1*n2).toString(), time:60}; }
+                    else if(mode.includes('div')) { const n2=Math.floor(Math.random()*8)+2; const ans=Math.floor(Math.random()*9)+1; const r=mode==='div-remain'?Math.floor(Math.random()*(n2-1))+1:0; return {text:`${n2*ans+r}÷${n2}=?`, answer:mode==='div-remain'?`${ans}r${r}`:ans.toString(), time:90, isRemain:mode==='div-remain'}; }
+                    else { const n1=Math.floor(Math.random()*50)+10; const n2=Math.floor(Math.random()*50)+10; return {text:`${n1}+${n2}=?`, answer:(n1+n2).toString(), time:60}; }
                 }
             };
 
-            const handleStartClick = (mode) => {
-                if (mode === 'daily_english') setShowModeChoice(true);
-                else startGame('math', 'select');
+            const generateEnglishQuestion = (role) => {
+                const pool = vocabMap[role] || BASE_VOCAB;
+                const w = pool[Math.floor(Math.random()*pool.length)];
+                const tmpl = SENTENCE_TEMPLATES[w.type] ? SENTENCE_TEMPLATES[w.type][0] : SENTENCE_TEMPLATES.noun[0];
+                let txt = tmpl.text.replace('___', '_____');
+                if (txt.includes("a _____")) { if (w.u) txt=txt.replace("a _____","some _____"); else if(['a','e','i','o','u'].includes(w.word[0])) txt=txt.replace("a _____","an _____"); }
+                const full = tmpl.text.replace('___', w.word);
+                const opts = pool.filter(v=>v.word!==w.word).sort(()=>0.5-Math.random()).slice(0,3).map(v=>v.word);
+                return { text:txt, fullSentence:full, answer:w.word, options:[w.word,...opts].sort(()=>0.5-Math.random()), time:30, wordObj:w, hint:tmpl.hint };
             };
 
+            const handleStartClick = (mode) => { if (mode === 'daily_english') setShowModeChoice(true); else startGame('math', 'select'); };
             const startGame = (mode, iMode) => {
                 if (CHARACTERS[playerKey].needPwd && prompt("家人密碼 (168)") !== FAMILY_PASSWORD) return alert("密碼錯誤");
                 if (!audioEnabled) toggleAudio();
                 const curLv = mode.includes('math') ? stats[playerKey].dailyMathLevel : stats[playerKey].dailyEnglishLevel;
                 const finalInputMode = (curLv >= 60 && mode.includes('english')) ? 'type' : iMode;
-                setGameMode(mode); setInputMode(finalInputMode); setPlayerHp(100); 
-                setDailyLevel(curLv + 1);
+                setGameMode(mode); setInputMode(finalInputMode); setPlayerHp(100); setDailyLevel(curLv + 1);
                 nextTurn(mode); setScreen('game'); setShowModeChoice(false);
             };
 
@@ -311,19 +384,13 @@
                 clearInterval(timerRef.current);
                 const isCorrect = val.toString().toLowerCase().trim() === question.answer.toLowerCase();
                 if (isCorrect) {
-                    setAnimState('playerAttack'); setEffectType(CHARACTERS[playerKey].attackType);
-                    playSFX(CHARACTERS[playerKey].attackType === 'ice' ? 'ice' : 'hit');
-                    setFeedback('correct');
-                    const base = 100 + timer * 5; const bonus = inputMode === 'type' ? 1.5 : 1;
-                    const pts = Math.round(base * bonus);
-                    setScore(s => s + pts);
+                    setAnimState('playerAttack'); setEffectType(CHARACTERS[playerKey].attackType); playSFX(CHARACTERS[playerKey].attackType === 'ice' ? 'ice' : 'hit');
+                    setFeedback('correct'); const base = 100 + timer * 5; const bonus = inputMode === 'type' ? 1.5 : 1; const pts = Math.round(base * bonus); setScore(s => s + pts);
                     if(question.wordObj) speakWord(question.fullSentence);
                     setTimeout(() => {
-                        const newStats = JSON.parse(JSON.stringify(stats)); // Deep Copy
-                        if (gameMode.includes('math')) newStats[playerKey].dailyMathLevel = dailyLevel;
-                        else newStats[playerKey].dailyEnglishLevel = dailyLevel;
-                        newStats[playerKey].dailyScore += pts;
-                        saveAll(newStats);
+                        const newStats = JSON.parse(JSON.stringify(stats)); 
+                        if (gameMode.includes('math')) newStats[playerKey].dailyMathLevel = dailyLevel; else newStats[playerKey].dailyEnglishLevel = dailyLevel;
+                        newStats[playerKey].dailyScore += pts; saveAll(newStats);
                         if (dailyLevel % 5 === 0) setScreen('result'); else { setDailyLevel(l=>l+1); nextTurn(gameMode); }
                     }, 1200);
                 } else {
@@ -334,14 +401,12 @@
 
             return (
                 <div className={`w-full h-screen flex flex-col overflow-hidden relative ${CHARACTERS[playerKey].bg} transition-all duration-1000`}>
-                    {/* 音效遮罩 */}
                     {screen === 'menu' && !audioEnabled && (
                         <div className="absolute inset-0 z-50 bg-black/90 flex items-center justify-center cursor-pointer" onClick={toggleAudio}>
                             <div className="text-center animate-pulse"><div className="text-6xl mb-4 text-yellow-400">🔊</div><h2 className="text-3xl font-black text-white">點擊開啟音效</h2></div>
                         </div>
                     )}
 
-                    {/* MENU */}
                     {screen === 'menu' && (
                         <div className="p-6 flex flex-col items-center justify-center h-full z-10 space-y-6">
                             <div className="w-full flex justify-end px-4"><button onClick={toggleAudio} className="bg-black/30 p-2 rounded-full text-white">{audioEnabled ? <LucideIcon name="volume-2" /> : <LucideIcon name="volume-x" />}</button></div>
@@ -370,7 +435,6 @@
                         </div>
                     )}
 
-                    {/* GAME */}
                     {screen === 'game' && (
                         <div className="h-full flex flex-col relative z-10">
                             <div className="p-4 flex justify-between items-center bg-black/40 backdrop-blur-md">
@@ -394,7 +458,6 @@
                         </div>
                     )}
 
-                    {/* SETTINGS */}
                     {screen === 'settings' && (
                         <div className="h-full bg-slate-900 p-6 overflow-y-auto">
                             <div className="flex justify-between mb-6"><h2 className="text-xl font-bold text-yellow-400">管理中心</h2><button onClick={()=>setScreen('menu')} className="bg-gray-700 px-4 rounded">退出</button></div>
@@ -405,7 +468,6 @@
                         </div>
                     )}
 
-                    {/* RESULT */}
                     {screen === 'result' && (
                         <div className="h-full flex flex-col items-center justify-center p-8 bg-slate-900 text-center animate-pop">
                             {playerHp > 0 ? <div className="text-9xl mb-6">🏆</div> : <div className="text-9xl mb-6">💀</div>}
@@ -419,7 +481,8 @@
         }
 
         const root = ReactDOM.createRoot(document.getElementById('root'));
-        root.render(<App />);
+        // Error Boundary Wrapper
+        root.render(<ErrorBoundary><App /></ErrorBoundary>);
     </script>
 </body>
 </html>
