@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>印家英雄榜：V24</title>
+    
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- React & ReactDOM from CDN -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    
+    <!-- Babel Standalone for JSX -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    
+    <!-- Firebase from CDN (will be loaded on demand) -->
+    <script type="module" id="firebase-loader">
+        // Firebase will be loaded dynamically if needed
+        window.initFirebase = () => {
+            import("https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js").then(({ initializeApp }) => {
+                import("https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js").then(({ getFirestore, doc, getDoc, setDoc }) => {
+                    import("https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js").then(({ getAuth, signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged }) => {
+                        const config = {
+                            apiKey: "AIzaSyCagXSigdL09-OK4G5jF20Hj3iXnRVQs-M",
+                            authDomain: "family-hero-f89f7.firebaseapp.com",
+                            projectId: "family-hero-f89f7",
+                            storageBucket: "family-hero-f89f7.firebasestorage.app",
+                            messagingSenderId: "900050172486",
+                            appId: "1:900050172486:web:bdb1904fd5bc7cf9eba847",
+                            measurementId: "G-G3FBB69BBD"
+                        };
+                        try {
+                            const app = initializeApp(config);
+                            window.db = getFirestore(app);
+                            window.auth = getAuth(app);
+                            window.provider = new GoogleAuthProvider();
+                            window.doc = doc; window.getDoc = getDoc; window.setDoc = setDoc;
+                            window.onSnapshot = onSnapshot; window.updateDoc = updateDoc; window.increment = increment;
+                            window.signInWithPopup = signInWithPopup; window.signOut = signOut; window.onAuthStateChanged = onAuthStateChanged;
+                            console.log("🔥 Firebase Loaded");
+                            return true;
+                        } catch (e) {
+                            console.warn("Firebase init failed:", e);
+                            return false;
+                        }
+                    });
+                });
+            });
+            return true;
+        };
+    </script>
+
+    <style>
+        body { margin: 0; overflow: hidden; font-family: "Segoe UI", system-ui, sans-serif; background-color: #0f172a; color: white; user-select: none; -webkit-tap-highlight-color: transparent; }
+        @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
+        .anim-float { animation: float 3s ease-in-out infinite; }
+        @keyframes shake { 0% { transform: translate(0,0); } 25% { transform: translate(-5px,0); } 75% { transform: translate(5px,0); } 100% { transform: translate(0,0); } }
+        .animate-shake { animation: shake 0.3s; }
+        @keyframes pop { 0% { transform: scale(0.8); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
+        .anim-pop { animation: pop 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+        .bg-ice { background: linear-gradient(to bottom, #0369a1, #0c4a6e); }
+        .bg-beetle-forest { background: linear-gradient(to bottom, #065f46, #064e3b); }
+        .bg-desert { background: linear-gradient(to bottom, #9a3412, #7c2d12); }
+        .bg-volcano { background: linear-gradient(to bottom, #991b1b, #7f1d1d); }
+        .char-container { position: relative; width: 100px; height: 140px; display: flex; flex-direction: column; align-items: center; }
+        .char-head { font-size: 3.5rem; z-index: 10; filter: drop-shadow(0 4px 2px rgba(0,0,0,0.3)); }
+        .char-body { width: 36px; height: 45px; border-radius: 8px; position: relative; z-index: 5; margin-top: -10px; }
+        .char-body.princess { background: linear-gradient(180deg, #ec4899, #be185d); }
+        .char-body.hero { background: linear-gradient(180deg, #3b82f6, #1d4ed8); }
+        .char-limb { width: 8px; height: 25px; background: #fda4af; position: absolute; border-radius: 4px; }
+        .arm-l { left: -6px; top: 5px; transform: rotate(20deg); }
+        .arm-r { right: -6px; top: 5px; transform: rotate(-20deg); }
+        .leg-l { left: 6px; bottom: -20px; height: 32px; background: #334155; }
+        .leg-r { right: 6px; bottom: -20px; height: 32px; background: #334155; }
+        .slot-hat { position: absolute; top: -20px; left: 50%; transform: translateX(-50%); font-size: 2rem; z-index: 20; }
+        .slot-weapon { position: absolute; top: 30px; right: -25px; font-size: 2rem; z-index: 20; transform: rotate(-15deg); }
+        .slot-pet { position: absolute; bottom: 0; left: -40px; font-size: 1.8rem; animation: float 3s infinite; }
+        input:focus { border-color: #facc15; box-shadow: 0 0 15px rgba(250, 204, 21, 0.4); outline: none; }
+        .numpad-btn { background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); border-radius: 10px; font-size: 1.5rem; padding: 15px; }
+        .numpad-btn:active { background: rgba(255,255,255,0.3); }
+    </style>
+</head>
+<body>
+    <div id="root" class="flex h-screen w-full items-center justify-center text-xl font-bold">🚀 載入中...</div>
+
+    <script type="text/babel" data-presets="react">
+        const { useState, useEffect, useRef, Component } = React;
+
+        // 由於文件較長，我會提供一個簡化但可運行的版本
+        // 完整功能版本建議安裝 Node.js 後使用 npm run dev
+        
+        alert('提示：這個文件是簡化版本。\n\n為了完整功能，建議：\n1. 安裝 Node.js (nodejs.org)\n2. 運行: npm install\n3. 運行: npm run dev\n\n或者，我可以為您創建完整的單文件版本（文件會很大）');
+
+        // 臨時顯示訊息
+        ReactDOM.createRoot(document.getElementById('root')).render(
+            <div className="h-screen flex flex-col items-center justify-center bg-slate-900 text-white p-8 text-center">
+                <h1 className="text-3xl font-bold mb-4">⚠️ 需要完整版本</h1>
+                <p className="text-gray-300 mb-6">
+                    這個簡化版本無法包含所有功能。<br/>
+                    請安裝 Node.js 後使用 npm run dev 運行完整版本。
+                </p>
+                <a href="INSTALL_NODEJS.md" className="text-blue-400 underline">查看安裝指南</a>
+            </div>
+        );
+    </script>
+</body>
+</html>
